@@ -18,7 +18,7 @@ import torch.nn as nn  # pylint: disable=unused-import
 
 from stable_baselines3.common.utils import set_random_seed
 # from stable_baselines3.common.cmd_util import make_atari_env
-from stable_baselines3.common.vec_env import VecFrameStack, VecNormalize, DummyVecEnv, VecTransposeImage
+from stable_baselines3.common.vec_env import VecFrameStack, VecNormalize, DummyVecEnv, VecTransposeImage, SubprocVecEnv
 from stable_baselines3.common.preprocessing import is_image_space
 from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
 from stable_baselines3.common.utils import constant_fn
@@ -31,6 +31,8 @@ from utils.hyperparams_opt import hyperparam_optimization
 from utils.callbacks import SaveVecNormalizeCallback
 from utils.noise import LinearNormalActionNoise
 from utils.utils import StoreDict, get_callback_class
+
+import deep_quintic
 
 seaborn.set()
 
@@ -80,6 +82,8 @@ if __name__ == '__main__':
                         help='Overwrite hyperparameter (e.g. learning_rate:0.01 train_freq:10)')
     parser.add_argument('-uuid', '--uuid', action='store_true', default=False,
                         help='Ensure that the run has a unique ID')
+    parser.add_argument('--subproc', action='store_true', default=False,
+                        help='Use SubprocVecEnv instead of DummyVecEnv')
     args = parser.parse_args()
 
     # Going through custom gym packages to let them register in the global registory
@@ -233,15 +237,26 @@ if __name__ == '__main__':
         # Do not log eval env (issue with writing the same file)
         log_dir = None if eval_env else save_path
 
-        if n_envs == 1:
-            env = DummyVecEnv([make_env(env_id, 0, args.seed,
-                               wrapper_class=env_wrapper, log_dir=log_dir,
-                               env_kwargs=env_kwargs)])
+        if args.subproc:
+            if n_envs == 1:
+                env = SubprocVecEnv([make_env(env_id, 0, args.seed, wrapper_class=env_wrapper, log_dir=log_dir,
+                                              env_kwargs=env_kwargs)])
+            else:
+                # env = SubprocVecEnv([make_env(env_id, i, args.seed) for i in range(n_envs)])
+                # On most env, SubprocVecEnv does not help and is quite memory hungry
+                env = SubprocVecEnv([make_env(env_id, i, args.seed, log_dir=log_dir,
+                                              wrapper_class=env_wrapper, env_kwargs=env_kwargs) for i in
+                                     range(n_envs)])
         else:
-            # env = SubprocVecEnv([make_env(env_id, i, args.seed) for i in range(n_envs)])
-            # On most env, SubprocVecEnv does not help and is quite memory hungry
-            env = DummyVecEnv([make_env(env_id, i, args.seed, log_dir=log_dir, env_kwargs=env_kwargs,
-                                        wrapper_class=env_wrapper) for i in range(n_envs)])
+            if n_envs == 1:
+                env = DummyVecEnv([make_env(env_id, 0, args.seed,
+                                   wrapper_class=env_wrapper, log_dir=log_dir,
+                                   env_kwargs=env_kwargs)])
+            else:
+                # env = SubprocVecEnv([make_env(env_id, i, args.seed) for i in range(n_envs)])
+                # On most env, SubprocVecEnv does not help and is quite memory hungry
+                env = DummyVecEnv([make_env(env_id, i, args.seed, log_dir=log_dir, env_kwargs=env_kwargs,
+                                            wrapper_class=env_wrapper) for i in range(n_envs)])
         if normalize:
             if args.verbose > 0:
                 if len(normalize_kwargs) > 0:
