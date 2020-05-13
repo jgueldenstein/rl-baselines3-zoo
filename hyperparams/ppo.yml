@@ -10,7 +10,7 @@ WolfgangEnv-v1:
   gamma: 0.95
   n_epochs: 10
   ent_coef: 0.0
-  learning_rate: 5e-5
+  learning_rate: !!float 5e-5
   clip_range: 0.2
 
 atari:
