@@ -12,6 +12,8 @@ import utils.import_envs  # pytype: disable=import-error
 from utils.utils import StoreDict
 from utils import ALGOS, create_test_env, get_latest_run_id, get_saved_hyperparams
 
+import deep_quintic
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', help='environment ID', type=str, default='CartPole-v1')
