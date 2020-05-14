@@ -151,13 +151,13 @@ def sample_ppo_params(trial):
     gae_lambda = trial.suggest_categorical('gae_lambda', [0.8, 0.9, 0.92, 0.95, 0.98, 0.99, 1.0])
     max_grad_norm = trial.suggest_categorical('max_grad_norm', [0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 5])
     vf_coef = trial.suggest_uniform('vf_coef', 0, 1)
-    net_arch = trial.suggest_categorical('net_arch', ['small', 'medium'])
+    net_arch = trial.suggest_categorical('net_arch', ['small', 'medium', 'large'])
     log_std_init = trial.suggest_uniform('log_std_init', -4, 1)
     sde_sample_freq = trial.suggest_categorical('sde_sample_freq', [-1, 8, 16, 32, 64, 128, 256])
     ortho_init = False
     # ortho_init = trial.suggest_categorical('ortho_init', [False, True])
     # activation_fn = trial.suggest_categorical('activation_fn', [nn.Tanh, nn.ReLU, nn.ELU, nn.LeakyReLU])
-    activation_fn = trial.suggest_categorical('activation_fn', [nn.Tanh, nn.ReLU])
+    activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu'])
 
     # TODO: account when using multiple envs
     if batch_size > n_steps:
@@ -169,7 +169,13 @@ def sample_ppo_params(trial):
     net_arch = {
         'small': [dict(pi=[64, 64], vf=[64, 64])],
         'medium': [dict(pi=[256, 256], vf=[256, 256])],
+        'large': [dict(pi=[512, 512], vf=[512, 512])],
     }[net_arch]
+
+    activation_fn = {
+        'tanh': nn.Tanh,
+        'relu': nn.ReLU
+    }[activation_fn]
 
 
     return {
