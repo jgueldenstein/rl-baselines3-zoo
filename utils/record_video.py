@@ -5,7 +5,10 @@ import gym
 import numpy as np
 from stable_baselines3.common.vec_env import VecVideoRecorder, VecFrameStack, VecNormalize
 
-from .utils import ALGOS, create_test_env, get_saved_hyperparams, get_latest_run_id
+from utils import ALGOS, create_test_env, get_saved_hyperparams, get_latest_run_id
+from utils import StoreDict
+
+import deep_quintic
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -61,6 +64,10 @@ parser.add_argument(
     help='Experiment ID (default: 0: latest, -1: no exp folder)',
     default=0,
     type=int)
+parser.add_argument('--env-kwargs', type=str, nargs='+', action=StoreDict,
+                    help='Optional keyword argument to pass to the env constructor')
+parser.add_argument('--load-best', action='store_true', default=False,
+                    help='Load best model instead of last model if available')
 args = parser.parse_args()
 
 env_id = args.env
@@ -82,12 +89,16 @@ else:
     log_path = os.path.join(folder, algo)
 
 model_path = os.path.join(log_path, f"{env_id}.zip")
+if args.load_best:
+    model_path = os.path.join(log_path, "best_model.zip")
+    found = os.path.isfile(model_path)
 
 stats_path = os.path.join(log_path, env_id)
 hyperparams, stats_path = get_saved_hyperparams(stats_path)
 
 
 is_atari = 'NoFrameskip' in env_id
+env_kwargs = {} if args.env_kwargs is None else args.env_kwargs
 
 env = create_test_env(env_id,
                       n_envs=n_envs,
@@ -95,7 +106,8 @@ env = create_test_env(env_id,
                       seed=seed,
                       log_dir=None,
                       should_render=not args.no_render,
-                      hyperparams=hyperparams)
+                      hyperparams=hyperparams,
+                      env_kwargs=env_kwargs)
 
 model = ALGOS[algo].load(model_path)
 
@@ -117,7 +129,7 @@ for _ in range(video_length + 1):
     obs, _, _, _ = env.step(action)
 
 # Workaround for https://github.com/openai/gym/issues/893
-if n_envs == 1 and 'Bullet' not in env_id and not is_atari:
+if n_envs == 1 and 'Bullet' not in env_id and not is_atari and 'Wolfgang' not in env_id:
     env = env.venv
     # DummyVecEnv
     while isinstance(env, VecNormalize) or isinstance(env, VecFrameStack):
