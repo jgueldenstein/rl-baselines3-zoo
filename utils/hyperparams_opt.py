@@ -156,7 +156,7 @@ def sample_ppo_params(trial):
     sde_sample_freq = trial.suggest_categorical('sde_sample_freq', [-1, 8, 16, 32, 64, 128, 256])
     ortho_init = False
     # ortho_init = trial.suggest_categorical('ortho_init', [False, True])
-    # activation_fn = trial.suggest_categorical('activation_fn', [nn.Tanh, nn.ReLU, nn.ELU, nn.LeakyReLU])
+    # activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu', 'elu', 'leaky_relu'])
     activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu'])
 
     # TODO: account when using multiple envs
@@ -174,9 +174,10 @@ def sample_ppo_params(trial):
 
     activation_fn = {
         'tanh': nn.Tanh,
-        'relu': nn.ReLU
+        'relu': nn.ReLU,
+        'elu': nn.ELU,
+        'leaky_relu': nn.LeakyReLU
     }[activation_fn]
-
 
     return {
         'n_steps': n_steps,
@@ -216,8 +217,8 @@ def sample_a2c_params(trial):
     net_arch = trial.suggest_categorical('net_arch', ['small', 'medium'])
     sde_net_arch = trial.suggest_categorical('sde_net_arch', [None, 'tiny', 'small'])
     full_std = trial.suggest_categorical('full_std', [False, True])
-    # activation_fn = trial.suggest_categorical('activation_fn', [nn.Tanh, nn.ReLU, nn.ELU, nn.LeakyReLU])
-    activation_fn = trial.suggest_categorical('activation_fn', [nn.Tanh, nn.ReLU])
+    # activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu', 'elu', 'leaky_relu'])
+    activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu'])
 
     if lr_schedule == 'linear':
         learning_rate = linear_schedule(learning_rate)
@@ -232,6 +233,13 @@ def sample_a2c_params(trial):
         'tiny': [64],
         'small': [64, 64],
     }[sde_net_arch]
+
+    activation_fn = {
+        'tanh': nn.Tanh,
+        'relu': nn.ReLU,
+        'elu': nn.ELU,
+        'leaky_relu': nn.LeakyReLU
+    }[activation_fn]
 
     return {
         'n_steps': n_steps,
