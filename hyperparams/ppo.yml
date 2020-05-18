@@ -3,15 +3,19 @@ WolfgangEnv-v1:
   n_envs: 32
   n_timesteps: !!float 1e8
   policy: 'MlpPolicy'
-  policy_kwargs: "dict(net_arch=[dict(pi=[1024,512], vf=[1024,512])], activation_fn=th.nn.ReLU, log_std_init=-1)"
+  policy_kwargs: "dict(net_arch=[dict(pi=[1024,512], vf=[1024,512])], activation_fn=th.nn.ReLU, log_std_init=-1, ortho_init=False)"
   n_steps: 128
   batch_size: 256
-  gae_lambda: 0.95
+  gae_lambda: 0.92
   gamma: 0.99
-  n_epochs: 10
+  n_epochs: 20
   ent_coef: 0.0
-  learning_rate: !!float 5e-5
-  clip_range: 0.2
+  learning_rate: !!float 3e-5
+  clip_range: lin_0.4
+  use_sde: True
+  sde_sample_freq: 4
+  max_grad_norm: 0.5
+
 
 atari:
   env_wrapper:
