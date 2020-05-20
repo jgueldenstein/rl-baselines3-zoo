@@ -395,7 +395,7 @@ if __name__ == '__main__':
             Helper to create a model with different hyperparameters
             """
             return ALGOS[args.algo](env=create_env(n_envs, eval_env=True), tensorboard_log=tensorboard_log,
-                                    verbose=0, **kwargs)
+                                    verbose=args.verbose, **kwargs)
 
 
         data_frame = hyperparam_optimization(args.algo, create_model, create_env, n_trials=args.n_trials,
