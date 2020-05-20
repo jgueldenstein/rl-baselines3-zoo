@@ -63,7 +63,8 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
     if verbose > 0:
         print("Sampler: {} - Pruner: {}".format(sampler_method, pruner_method))
 
-    study = optuna.create_study(sampler=sampler, pruner=pruner, direction="maximize", storage=storage, study_name=study_name)
+    study = optuna.create_study(sampler=sampler, pruner=pruner, direction="maximize", storage=storage,
+                                study_name=study_name, load_if_exists=True)
     algo_sampler = HYPERPARAMS_SAMPLER[algo]
 
     def objective(trial):
