@@ -79,6 +79,8 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
         if algo in ['ddpg', 'td3'] or trial.model_class in ['ddpg', 'td3']:
             trial.n_actions = env_fn(n_envs=1).action_space.shape[0]
         kwargs.update(algo_sampler(trial))
+        if verbose:
+            print("Trying following parameters: " + str(kwargs))
 
         model = model_fn(**kwargs)
         model.trial = trial
