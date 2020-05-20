@@ -12,7 +12,7 @@ from utils import linear_schedule
 
 
 def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=5000, hyperparams=None,
-                            n_jobs=1, sampler_method='random', pruner_method='halving', storage=None,
+                            n_jobs=1, sampler_method='random', pruner_method='halving', storage=None, study_name=None,
                             n_startup_trials=10, n_evaluations=20, n_eval_episodes=5, seed=0, verbose=1):
     """
     :param algo: (str)
@@ -63,7 +63,7 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
     if verbose > 0:
         print("Sampler: {} - Pruner: {}".format(sampler_method, pruner_method))
 
-    study = optuna.create_study(sampler=sampler, pruner=pruner, direction="maximize", storage=storage)
+    study = optuna.create_study(sampler=sampler, pruner=pruner, direction="maximize", storage=storage, study_name=study_name)
     algo_sampler = HYPERPARAMS_SAMPLER[algo]
 
     def objective(trial):
