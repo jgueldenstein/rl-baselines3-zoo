@@ -404,7 +404,7 @@ if __name__ == '__main__':
                                              sampler_method=args.sampler, pruner_method=args.pruner,
                                              storage=args.storage, study_name=args.study_name,
                                              n_startup_trials=args.n_startup_trials,
-                                             n_evaluations=args.n_evaluations, verbose=args.verbose)
+                                             n_evaluations=args.n_evaluations, verbose=args.verbose, n_envs=n_envs)
 
         report_name = "report_{}_{}-trials-{}-{}-{}_{}.csv".format(env_id, args.n_trials, n_timesteps,
                                                                    args.sampler, args.pruner, int(time.time()))

@@ -13,7 +13,7 @@ from utils import linear_schedule
 
 def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=5000, hyperparams=None,
                             n_jobs=1, sampler_method='random', pruner_method='halving', storage=None, study_name=None,
-                            n_startup_trials=10, n_evaluations=20, n_eval_episodes=5, seed=0, verbose=1):
+                            n_startup_trials=10, n_evaluations=20, n_eval_episodes=5, seed=0, verbose=1, n_envs=1):
     """
     :param algo: (str)
     :param model_fn: (func) function that is used to instantiate the model
@@ -81,7 +81,7 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
         # Hack to use DDPG/TD3 noise sampler
         if algo in ['ddpg', 'td3'] or trial.model_class in ['ddpg', 'td3']:
             trial.n_actions = env_fn(n_envs=1).action_space.shape[0]
-        kwargs.update(algo_sampler(trial, hyperparams['n_envs']))
+        kwargs.update(algo_sampler(trial, n_envs))
         if verbose:
             print("Trying following parameters: " + str(kwargs))
 
