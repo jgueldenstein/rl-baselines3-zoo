@@ -63,6 +63,9 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
     if verbose > 0:
         print("Sampler: {} - Pruner: {}".format(sampler_method, pruner_method))
 
+    if storage:
+        # if using a remote storage activate pool_pre_ping to prevent errors when trying to access the database
+        storage = optuna.storages.RDBStorage(url=storage, engine_kwargs={"pool_pre_ping": True})
     study = optuna.create_study(sampler=sampler, pruner=pruner, direction="maximize", storage=storage,
                                 study_name=study_name, load_if_exists=True)
     algo_sampler = HYPERPARAMS_SAMPLER[algo]
@@ -78,7 +81,7 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
         # Hack to use DDPG/TD3 noise sampler
         if algo in ['ddpg', 'td3'] or trial.model_class in ['ddpg', 'td3']:
             trial.n_actions = env_fn(n_envs=1).action_space.shape[0]
-        kwargs.update(algo_sampler(trial))
+        kwargs.update(algo_sampler(trial, hyperparams['n_envs']))
         if verbose:
             print("Trying following parameters: " + str(kwargs))
 
@@ -117,7 +120,7 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
         return reward
 
     try:
-        study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs)
+        study.optimize(objective, n_trials=n_trials, n_jobs=n_jobs, show_progress_bar=True)
     except KeyboardInterrupt:
         pass
 
@@ -135,7 +138,7 @@ def hyperparam_optimization(algo, model_fn, env_fn, n_trials=10, n_timesteps=500
     return study.trials_dataframe()
 
 
-def sample_ppo_params(trial):
+def sample_ppo_params(trial, n_envs):
     """
     Sampler for PPO2 hyperparams.
 
@@ -162,8 +165,7 @@ def sample_ppo_params(trial):
     # activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu', 'elu', 'leaky_relu'])
     activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu'])
 
-    # TODO: account when using multiple envs
-    if batch_size > n_steps:
+    if batch_size > n_steps * n_envs:
         batch_size = n_steps
 
     if lr_schedule == 'linear':
@@ -198,7 +200,7 @@ def sample_ppo_params(trial):
     }
 
 
-def sample_a2c_params(trial):
+def sample_a2c_params(trial, n_envs):
     """
     Sampler for A2C hyperparams.
 
@@ -259,7 +261,7 @@ def sample_a2c_params(trial):
     }
 
 
-def sample_sac_params(trial):
+def sample_sac_params(trial, n_envs):
     """
     Sampler for SAC hyperparams.
 
@@ -310,7 +312,7 @@ def sample_sac_params(trial):
     }
 
 
-def sample_td3_params(trial):
+def sample_td3_params(trial, n_envs):
     """
     Sampler for TD3 hyperparams.
 
@@ -338,7 +340,6 @@ def sample_td3_params(trial):
 
     net_arch = trial.suggest_categorical('net_arch', ["small", "medium", "big"])
     # activation_fn = trial.suggest_categorical('activation_fn', [nn.Tanh, nn.ReLU, nn.ELU, nn.LeakyReLU])
-
 
     net_arch = {
         'small': [64, 64],
