@@ -168,7 +168,7 @@ def sample_ppo_params(trial, n_envs):
     # ortho_init = trial.suggest_categorical('ortho_init', [False, True])
     # activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu', 'elu', 'leaky_relu'])
     #activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu'])
-    activation_fn = 'th.nn.ReLU'
+    activation_fn = 'relu'
 
     if batch_size > n_steps * n_envs:
         batch_size = n_steps
