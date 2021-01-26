@@ -1,26 +1,31 @@
 import argparse
 import os
 import importlib
+import yaml
 
 import gym
 import numpy as np
+import torch as th
 
 from stable_baselines3.common.utils import set_random_seed
 from stable_baselines3.common.vec_env import VecEnvWrapper, VecEnv, DummyVecEnv
 
-import utils.import_envs  # pytype: disable=import-error
+import utils.import_envs  # noqa: F401 pylint: disable=unused-import
 from utils.utils import StoreDict
 from utils import ALGOS, create_test_env, get_latest_run_id, get_saved_hyperparams
 
 import deep_quintic
 
-def main():
+
+def main():  # noqa: C901
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', help='environment ID', type=str, default='CartPole-v1')
     parser.add_argument('-f', '--folder', help='Log folder', type=str, default='rl-trained-agents')
     parser.add_argument('--algo', help='RL Algorithm', default='ppo',
                         type=str, required=False, choices=list(ALGOS.keys()))
     parser.add_argument('-n', '--n-timesteps', help='number of timesteps', default=1000,
+                        type=int)
+    parser.add_argument('--num-threads', help='Number of threads for PyTorch (-1 to use default)', default=-1,
                         type=int)
     parser.add_argument('--n-envs', help='number of environments', default=1,
                         type=int)
@@ -34,6 +39,9 @@ def main():
                         help='Use deterministic actions')
     parser.add_argument('--load-best', action='store_true', default=False,
                         help='Load best model instead of last model if available')
+    parser.add_argument('--load-checkpoint', type=int,
+                        help='Load checkpoint instead of last model if available, '
+                             'you must pass the number of timesteps corresponding to it')
     parser.add_argument('--stochastic', action='store_true', default=False,
                         help='Use stochastic actions (for DDPG/DQN/SAC)')
     parser.add_argument('--norm-reward', action='store_true', default=False,
@@ -77,6 +85,10 @@ def main():
         model_path = os.path.join(log_path, "best_model.zip")
         found = os.path.isfile(model_path)
 
+    if args.load_checkpoint is not None:
+        model_path = os.path.join(log_path, f"rl_model_{args.load_checkpoint}_steps.zip")
+        found = os.path.isfile(model_path)
+
     if not found:
         raise ValueError(f"No model found for {algo} on {env_id}, path: {model_path}")
 
@@ -85,11 +97,27 @@ def main():
 
     set_random_seed(args.seed)
 
+    if args.num_threads > 0:
+        if args.verbose > 1:
+            print(f"Setting torch.num_threads to {args.num_threads}")
+        th.set_num_threads(args.num_threads)
+
     is_atari = 'NoFrameskip' in env_id
 
     stats_path = os.path.join(log_path, env_id)
     hyperparams, stats_path = get_saved_hyperparams(stats_path, norm_reward=args.norm_reward, test_mode=True)
-    env_kwargs = {} if args.env_kwargs is None else args.env_kwargs
+
+    # load env_kwargs if existing
+    env_kwargs = {}
+    args_path = os.path.join(log_path, env_id, "args.yml")
+    if os.path.isfile(args_path):
+        with open(args_path, 'r') as f:
+            loaded_args = yaml.load(f, Loader=yaml.UnsafeLoader)  # pytype: disable=module-attr
+            if loaded_args['env_kwargs'] is not None:
+                env_kwargs = loaded_args['env_kwargs']
+    # overwrite with command line arguments
+    if args.env_kwargs is not None:
+        env_kwargs.update(args.env_kwargs)
 
     log_dir = args.reward_log if args.reward_log != '' else None
 
@@ -99,7 +127,12 @@ def main():
                           hyperparams=hyperparams,
                           env_kwargs=env_kwargs)
 
-    model = ALGOS[algo].load(model_path, env=env)
+    kwargs = dict(seed=args.seed)
+    if algo in ['dqn', 'ddpg', 'sac', 'her', 'td3']:
+        # Dummy buffer size as we don't need memory to enjoy the trained agent
+        kwargs.update(dict(buffer_size=1))
+
+    model = ALGOS[algo].load(model_path, env=env, **kwargs)
 
     obs = env.reset()
 
@@ -166,11 +199,10 @@ def main():
     if args.verbose > 0 and len(episode_lengths) > 0:
         print("Mean episode length: {:.2f} +/- {:.2f}".format(np.mean(episode_lengths), np.std(episode_lengths)))
 
-
     # Workaround for https://github.com/openai/gym/issues/893
     if not args.no_render:
         if (args.n_envs == 1 and 'Bullet' not in env_id
-            and not is_atari and isinstance(env, VecEnv)):
+                and not is_atari and isinstance(env, VecEnv)):
             # DummyVecEnv
             # Unwrap env
             while isinstance(env, VecEnvWrapper):

@@ -8,7 +8,7 @@ import pandas as pd
 import matplotlib
 # Fix when running tests
 try:
-    import tkinter as Tk
+    import tkinter  # noqa: F401 pylint: disable=unused-import
 except ImportError:
     matplotlib.use('agg')
 
@@ -67,7 +67,7 @@ results = {
     'n_episodes': []
 }
 
-for idx, trained_model in enumerate(trained_models.keys()):
+for idx, trained_model in enumerate(trained_models.keys()):  # noqa: C901
     algo, env_id = trained_models[trained_model]
     n_envs = args.n_envs
     n_timesteps = args.n_timesteps
@@ -143,7 +143,7 @@ writer.from_dataframe(results_df)
 with open(f"{args.benchmark_dir}/benchmark.md", "w") as f:
     writer.stream = f
     writer.write_table()
-print(f"Results written to:", "{args.benchmark_dir}/benchmark.md")
+print(f"Results written to: {args.benchmark_dir}/benchmark.md")
 
 # Update root benchmark file
 with open("benchmark.md", "w") as f:

@@ -43,6 +43,11 @@ To load the best model (when using evaluation environment):
 python enjoy.py --algo algo_name --env env_id -f logs/ --exp-id 1 --load-best
 ```
 
+To load a checkpoint (here the checkpoint name is `rl_model_10000_steps.zip`):
+```
+python enjoy.py --algo algo_name --env env_id -f logs/ --exp-id 1 --load-checkpoint 10000
+```
+
 ## Train an Agent
 
 The hyperparameters for each environment are defined in `hyperparameters/algo_name.yml`.
@@ -88,6 +93,10 @@ python train.py --algo ppo --env MountainCar-v0 -n 50000 -optimize --n-trials 10
   --sampler tpe --pruner median
 ```
 
+Distributed optimization using a shared database is also possible (see the corresponding [Optuna documentation](https://optuna.readthedocs.io/en/latest/tutorial/distributed.html)):
+```
+python train.py --algo ppo --env MountainCar-v0 -optimize --study-name test --storage sqlite:///example.db 
+```
 
 ## Env Wrappers
 
