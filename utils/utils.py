@@ -1,38 +1,47 @@
-import os
-import glob
-import yaml
-import importlib
 import argparse
-from typing import Dict, Tuple
+import glob
+import importlib
+import os
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import gym
-# For custom activation fn
-import torch.nn as nn  # noqa: F401 pylint: disable=unused-import
+import stable_baselines3 as sb3  # noqa: F401
+import torch as th  # noqa: F401
+import yaml
+from sb3_contrib import QRDQN, TQC
+from stable_baselines3 import A2C, DDPG, DQN, HER, PPO, SAC, TD3
+from stable_baselines3.common.callbacks import BaseCallback
+from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.sb2_compat.rmsprop_tf_like import RMSpropTFLike  # noqa: F401
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecFrameStack, VecNormalize
 
-from stable_baselines3.common.monitor import Monitor
-# from stable_baselines3.common import logger
-from stable_baselines3 import A2C, DQN, PPO, SAC, TD3
-from stable_baselines3.common.vec_env import (DummyVecEnv, VecNormalize,
-                                              VecFrameStack, SubprocVecEnv)
-# from stable_baselines3.common.cmd_util import make_atari_env
-from stable_baselines3.common.utils import set_random_seed
+# For custom activation fn
+from torch import nn as nn  # noqa: F401 pylint: disable=unused-import
 
 ALGOS = {
-    'a2c': A2C,
-    'dqn': DQN,
-    'ppo': PPO,
-    'sac': SAC,
-    'td3': TD3
+    "a2c": A2C,
+    "ddpg": DDPG,
+    "dqn": DQN,
+    "ppo": PPO,
+    "her": HER,
+    "sac": SAC,
+    "td3": TD3,
+    # SB3 Contrib,
+    "qrdqn": QRDQN,
+    "tqc": TQC,
 }
 
 
-def flatten_dict_observations(env):
+def flatten_dict_observations(env: gym.Env) -> gym.Env:
     assert isinstance(env.observation_space, gym.spaces.Dict)
-    keys = env.observation_space.spaces.keys()
-    return gym.wrappers.FlattenDictWrapper(env, dict_keys=list(keys))
+    try:
+        return gym.wrappers.FlattenObservation(env)
+    except AttributeError:
+        keys = env.observation_space.spaces.keys()
+        return gym.wrappers.FlattenDictWrapper(env, dict_keys=list(keys))
 
 
-def get_wrapper_class(hyperparams):
+def get_wrapper_class(hyperparams: Dict[str, Any]) -> Optional[Callable[[gym.Env], gym.Env]]:
     """
     Get one or more Gym environment wrapper class specified as a hyper parameter
     "env_wrapper".
@@ -46,19 +55,19 @@ def get_wrapper_class(hyperparams):
         - utils.wrappers.TimeFeatureWrapper
 
 
-    :param hyperparams: (dict)
-    :return: a subclass of gym.Wrapper (class object) you can use to
-             create another Gym env giving an original env.
+    :param hyperparams:
+    :return: maybe a callable to wrap the environment
+        with one or multiple gym.Wrapper
     """
 
     def get_module_name(wrapper_name):
-        return '.'.join(wrapper_name.split('.')[:-1])
+        return ".".join(wrapper_name.split(".")[:-1])
 
     def get_class_name(wrapper_name):
-        return wrapper_name.split('.')[-1]
+        return wrapper_name.split(".")[-1]
 
-    if 'env_wrapper' in hyperparams.keys():
-        wrapper_name = hyperparams.get('env_wrapper')
+    if "env_wrapper" in hyperparams.keys():
+        wrapper_name = hyperparams.get("env_wrapper")
 
         if wrapper_name is None:
             return None
@@ -74,9 +83,11 @@ def get_wrapper_class(hyperparams):
         for wrapper_name in wrapper_names:
             # Handle keyword arguments
             if isinstance(wrapper_name, dict):
-                assert len(wrapper_name) == 1, ("You have an error in the formatting "
-                                                f"of your YAML file near {wrapper_name}. "
-                                                "You should check the indentation.")
+                assert len(wrapper_name) == 1, (
+                    "You have an error in the formatting "
+                    f"of your YAML file near {wrapper_name}. "
+                    "You should check the indentation."
+                )
                 wrapper_dict = wrapper_name
                 wrapper_name = list(wrapper_dict.keys())[0]
                 kwargs = wrapper_dict[wrapper_name]
@@ -87,20 +98,21 @@ def get_wrapper_class(hyperparams):
             wrapper_classes.append(wrapper_class)
             wrapper_kwargs.append(kwargs)
 
-        def wrap_env(env):
+        def wrap_env(env: gym.Env) -> gym.Env:
             """
-            :param env: (gym.Env)
-            :return: (gym.Env)
+            :param env:
+            :return:
             """
             for wrapper_class, kwargs in zip(wrapper_classes, wrapper_kwargs):
                 env = wrapper_class(env, **kwargs)
             return env
+
         return wrap_env
     else:
         return None
 
 
-def get_callback_class(hyperparams):
+def get_callback_list(hyperparams: Dict[str, Any]) -> List[BaseCallback]:
     """
     Get one or more Callback class specified as a hyper-parameter
     "callback".
@@ -113,20 +125,20 @@ def get_callback_class(hyperparams):
         - utils.callbacks.PlotActionWrapper
         - stable_baselines3.common.callbacks.CheckpointCallback
 
-    :param hyperparams: (dict)
-    :return: (List[BaseCallback])
+    :param hyperparams:
+    :return:
     """
 
     def get_module_name(callback_name):
-        return '.'.join(callback_name.split('.')[:-1])
+        return ".".join(callback_name.split(".")[:-1])
 
     def get_class_name(callback_name):
-        return callback_name.split('.')[-1]
+        return callback_name.split(".")[-1]
 
     callbacks = []
 
-    if 'callback' in hyperparams.keys():
-        callback_name = hyperparams.get('callback')
+    if "callback" in hyperparams.keys():
+        callback_name = hyperparams.get("callback")
 
         if callback_name is None:
             return callbacks
@@ -140,9 +152,11 @@ def get_callback_class(hyperparams):
         for callback_name in callback_names:
             # Handle keyword arguments
             if isinstance(callback_name, dict):
-                assert len(callback_name) == 1, ("You have an error in the formatting "
-                                                 f"of your YAML file near {callback_name}. "
-                                                 "You should check the indentation.")
+                assert len(callback_name) == 1, (
+                    "You have an error in the formatting "
+                    f"of your YAML file near {callback_name}. "
+                    "You should check the indentation."
+                )
                 callback_dict = callback_name
                 callback_name = list(callback_dict.keys())[0]
                 kwargs = callback_dict[callback_name]
@@ -155,115 +169,79 @@ def get_callback_class(hyperparams):
     return callbacks
 
 
-def make_env(env_id, rank=0, seed=0, log_dir=None,
-             wrapper_class=None, env_kwargs=None):
-    """
-    Helper function to multiprocess training
-    and log the progress.
-
-    :param env_id: (str)
-    :param rank: (int)
-    :param seed: (int)
-    :param log_dir: (str)
-    :param wrapper_class: (Type[gym.Wrapper]) a subclass of gym.Wrapper
-        to wrap the original env with
-    :param env_kwargs: (Dict[str, Any]) Optional keyword argument to pass to the env constructor
-    """
-    if log_dir is not None:
-        os.makedirs(log_dir, exist_ok=True)
-
-    if env_kwargs is None:
-        env_kwargs = {}
-
-    def _init():
-        set_random_seed(seed + rank)
-        env = gym.make(env_id, **env_kwargs)
-
-        # Wrap first with a monitor (e.g. for Atari env where reward clipping is used)
-        log_file = os.path.join(log_dir, str(rank)) if log_dir is not None else None
-        # Monitor success rate too for the real robot
-        info_keywords = ('is_success',) if 'NeckEnv' in env_id else ()
-        env = Monitor(env, log_file, info_keywords=info_keywords)
-
-        # Dict observation space is currently not supported.
-        # https://github.com/hill-a/stable-baselines/issues/321
-        # We allow a Gym env wrapper (a subclass of gym.Wrapper)
-        if wrapper_class:
-            env = wrapper_class(env)
-
-        env.seed(seed + rank)
-        return env
-
-    return _init
-
-
-def create_test_env(env_id, n_envs=1,
-                    stats_path=None, seed=0,
-                    log_dir='', should_render=True,
-                    hyperparams=None, env_kwargs=None):
+def create_test_env(
+    env_id: str,
+    n_envs: int = 1,
+    stats_path: Optional[str] = None,
+    seed: int = 0,
+    log_dir: Optional[str] = None,
+    should_render: bool = True,
+    hyperparams: Optional[Dict[str, Any]] = None,
+    env_kwargs: Optional[Dict[str, Any]] = None,
+) -> VecEnv:
     """
     Create environment for testing a trained agent
 
-    :param env_id: (str)
-    :param n_envs: (int) number of processes
-    :param stats_path: (str) path to folder containing saved running averaged
-    :param seed: (int) Seed for random number generator
-    :param log_dir: (str) Where to log rewards
-    :param should_render: (bool) For Pybullet env, display the GUI
-    :param hyperparams: (dict) Additional hyperparams (ex: n_stack)
-    :param env_kwargs: (Dict[str, Any]) Optional keyword argument to pass to the env constructor
-    :return: (gym.Env)
+    :param env_id:
+    :param n_envs: number of processes
+    :param stats_path: path to folder containing saved running averaged
+    :param seed: Seed for random number generator
+    :param log_dir: Where to log rewards
+    :param should_render: For Pybullet env, display the GUI
+    :param hyperparams: Additional hyperparams (ex: n_stack)
+    :param env_kwargs: Optional keyword argument to pass to the env constructor
+    :return:
     """
-    # HACK to save logs
-    # if log_dir is not None:
-    #     os.environ["OPENAI_LOG_FORMAT"] = 'csv'
-    #     os.environ["OPENAI_LOGDIR"] = os.path.abspath(log_dir)
-    #     os.makedirs(log_dir, exist_ok=True)
-    #     logger.configure()
-
     # Create the environment and wrap it if necessary
     env_wrapper = get_wrapper_class(hyperparams)
-    if 'env_wrapper' in hyperparams.keys():
-        del hyperparams['env_wrapper']
 
-    if n_envs > 1:
-        # start_method = 'spawn' for thread safe
-        env = SubprocVecEnv([make_env(env_id, i, seed, log_dir,
-                                      wrapper_class=env_wrapper, env_kwargs=env_kwargs) for i in range(n_envs)])
-    # Pybullet envs does not follow gym.render() interface
-    elif "Bullet" in env_id:
+    hyperparams = {} if hyperparams is None else hyperparams
+
+    if "env_wrapper" in hyperparams.keys():
+        del hyperparams["env_wrapper"]
+
+    vec_env_kwargs = {}
+    vec_env_cls = DummyVecEnv
+    if n_envs > 1 or "Bullet" in env_id:
         # HACK: force SubprocVecEnv for Bullet env
-        env = SubprocVecEnv([make_env(env_id, 0, seed, log_dir,
-                                      wrapper_class=env_wrapper, env_kwargs=env_kwargs)])
-    else:
-        env = DummyVecEnv([make_env(env_id, 0, seed, log_dir,
-                                    wrapper_class=env_wrapper, env_kwargs=env_kwargs)])
+        # as Pybullet envs does not follow gym.render() interface
+        vec_env_cls = SubprocVecEnv
+        # start_method = 'spawn' for thread safe
+
+    env = make_vec_env(
+        env_id,
+        n_envs=n_envs,
+        monitor_dir=log_dir,
+        seed=seed,
+        wrapper_class=env_wrapper,
+        env_kwargs=env_kwargs,
+        vec_env_cls=vec_env_cls,
+        vec_env_kwargs=vec_env_kwargs,
+    )
 
     # Load saved stats for normalizing input and rewards
     # And optionally stack frames
     if stats_path is not None:
-        if hyperparams['normalize']:
+        if hyperparams["normalize"]:
             print("Loading running average")
-            print("with params: {}".format(hyperparams['normalize_kwargs']))
-            env = VecNormalize(env, training=False, **hyperparams['normalize_kwargs'])
-
-            if os.path.exists(os.path.join(stats_path, 'vecnormalize.pkl')):
-                env = VecNormalize.load(os.path.join(stats_path, 'vecnormalize.pkl'), env)
+            print(f"with params: {hyperparams['normalize_kwargs']}")
+            path_ = os.path.join(stats_path, "vecnormalize.pkl")
+            if os.path.exists(path_):
+                env = VecNormalize.load(path_, env)
                 # Deactivate training and reward normalization
                 env.training = False
                 env.norm_reward = False
             else:
-                # Legacy:
-                env.load_running_average(stats_path)
+                raise ValueError(f"VecNormalize stats {path_} not found")
 
-        n_stack = hyperparams.get('frame_stack', 0)
+        n_stack = hyperparams.get("frame_stack", 0)
         if n_stack > 0:
-            print("Stacking {} frames".format(n_stack))
+            print(f"Stacking {n_stack} frames")
             env = VecFrameStack(env, n_stack)
     return env
 
 
-def linear_schedule(initial_value):
+def linear_schedule(initial_value: Union[float, str]) -> Callable[[float], float]:
     """
     Linear learning rate schedule.
 
@@ -273,13 +251,13 @@ def linear_schedule(initial_value):
     if isinstance(initial_value, str):
         initial_value = float(initial_value)
 
-    def func(progress):
+    def func(progress_remaining: float) -> float:
         """
         Progress will decrease from 1 (beginning) to 0
-        :param progress: (float)
+        :param progress_remaining: (float)
         :return: (float)
         """
-        return progress * initial_value
+        return progress_remaining * initial_value
 
     return func
 
@@ -295,22 +273,22 @@ def get_trained_models(log_folder: str) -> Dict[str, Tuple[str, str]]:
             continue
         for env_id in os.listdir(os.path.join(log_folder, algo)):
             # Retrieve env name
-            env_id = env_id.split('_')[0]
-            trained_models['{}-{}'.format(algo, env_id)] = (algo, env_id)
+            env_id = env_id.split("_")[0]
+            trained_models[f"{algo}-{env_id}"] = (algo, env_id)
     return trained_models
 
 
-def get_latest_run_id(log_path, env_id):
+def get_latest_run_id(log_path: str, env_id: str) -> int:
     """
     Returns the latest run number for the given log name and log path,
     by finding the greatest number in the directories.
 
-    :param log_path: (str) path to log folder
-    :param env_id: (str)
-    :return: (int) latest run number
+    :param log_path: path to log folder
+    :param env_id:
+    :return: latest run number
     """
     max_run_id = 0
-    for path in glob.glob(log_path + "/{}_[0-9]*".format(env_id)):
+    for path in glob.glob(log_path + f"/{env_id}_[0-9]*"):
         file_name = path.split("/")[-1]
         ext = file_name.split("_")[-1]
         if env_id == "_".join(file_name.split("_")[:-1]) and ext.isdigit() and int(ext) > max_run_id:
@@ -318,36 +296,36 @@ def get_latest_run_id(log_path, env_id):
     return max_run_id
 
 
-def get_saved_hyperparams(stats_path, norm_reward=False, test_mode=False):
+def get_saved_hyperparams(stats_path: str, norm_reward: bool = False, test_mode: bool = False) -> Tuple[Dict[str, Any], str]:
     """
-    :param stats_path: (str)
-    :param norm_reward: (bool)
-    :param test_mode: (bool)
-    :return: (dict, str)
+    :param stats_path:
+    :param norm_reward:
+    :param test_mode:
+    :return:
     """
     hyperparams = {}
     if not os.path.isdir(stats_path):
         stats_path = None
     else:
-        config_file = os.path.join(stats_path, 'config.yml')
+        config_file = os.path.join(stats_path, "config.yml")
         if os.path.isfile(config_file):
             # Load saved hyperparameters
-            with open(os.path.join(stats_path, 'config.yml'), 'r') as f:
+            with open(os.path.join(stats_path, "config.yml"), "r") as f:
                 hyperparams = yaml.load(f, Loader=yaml.UnsafeLoader)  # pytype: disable=module-attr
-            hyperparams['normalize'] = hyperparams.get('normalize', False)
+            hyperparams["normalize"] = hyperparams.get("normalize", False)
         else:
-            obs_rms_path = os.path.join(stats_path, 'obs_rms.pkl')
-            hyperparams['normalize'] = os.path.isfile(obs_rms_path)
+            obs_rms_path = os.path.join(stats_path, "obs_rms.pkl")
+            hyperparams["normalize"] = os.path.isfile(obs_rms_path)
 
         # Load normalization params
-        if hyperparams['normalize']:
-            if isinstance(hyperparams['normalize'], str):
-                normalize_kwargs = eval(hyperparams['normalize'])
+        if hyperparams["normalize"]:
+            if isinstance(hyperparams["normalize"], str):
+                normalize_kwargs = eval(hyperparams["normalize"])
                 if test_mode:
-                    normalize_kwargs['norm_reward'] = norm_reward
+                    normalize_kwargs["norm_reward"] = norm_reward
             else:
-                normalize_kwargs = {'norm_obs': hyperparams['normalize'], 'norm_reward': norm_reward}
-            hyperparams['normalize_kwargs'] = normalize_kwargs
+                normalize_kwargs = {"norm_obs": hyperparams["normalize"], "norm_reward": norm_reward}
+            hyperparams["normalize_kwargs"] = normalize_kwargs
     return hyperparams, stats_path
 
 
@@ -358,6 +336,7 @@ class StoreDict(argparse.Action):
     In: args1:0.0 args2:"dict(a=1)"
     Out: {'args1': 0.0, arg2: dict(a=1)}
     """
+
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         self._nargs = nargs
         super(StoreDict, self).__init__(option_strings, dest, nargs=nargs, **kwargs)

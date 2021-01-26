@@ -69,7 +69,6 @@ atari:
   n_timesteps: !!float 1e7
   learning_rate: lin_2.5e-4
   clip_range: lin_0.1
-  clip_range_vf: 0.1
   vf_coef: 0.5
   ent_coef: 0.01
 
@@ -193,7 +192,7 @@ LunarLanderContinuous-v2:
 
 # Tuned
 HalfCheetahBulletEnv-v0:
-  env_wrapper: utils.wrappers.TimeFeatureWrapper
+  env_wrapper: sb3_contrib.common.wrappers.TimeFeatureWrapper
   normalize: true
   n_envs: 16
   n_timesteps: !!float 2e6
@@ -218,7 +217,7 @@ HalfCheetahBulletEnv-v0:
 
 # Tuned
 AntBulletEnv-v0:
-  env_wrapper: utils.wrappers.TimeFeatureWrapper
+  env_wrapper: sb3_contrib.common.wrappers.TimeFeatureWrapper
   normalize: true
   n_envs: 16
   n_timesteps: !!float 2e6
@@ -243,7 +242,7 @@ AntBulletEnv-v0:
 
 # Tuned
 Walker2DBulletEnv-v0:
-  env_wrapper: utils.wrappers.TimeFeatureWrapper
+  env_wrapper: sb3_contrib.common.wrappers.TimeFeatureWrapper
   normalize: true
   n_envs: 16
   n_timesteps: !!float 2e6
@@ -268,7 +267,7 @@ Walker2DBulletEnv-v0:
 
 # Tuned
 HopperBulletEnv-v0:
-  env_wrapper: utils.wrappers.TimeFeatureWrapper
+  env_wrapper: sb3_contrib.common.wrappers.TimeFeatureWrapper
   normalize: true
   n_envs: 16
   n_timesteps: !!float 2e6
@@ -293,7 +292,7 @@ HopperBulletEnv-v0:
 
 # Tuned
 ReacherBulletEnv-v0:
-  env_wrapper: utils.wrappers.TimeFeatureWrapper
+  env_wrapper: sb3_contrib.common.wrappers.TimeFeatureWrapper
   normalize: true
   n_envs: 8
   n_timesteps: !!float 1e6

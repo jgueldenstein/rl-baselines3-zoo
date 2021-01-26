@@ -1,4 +1,4 @@
-[![pipeline status](https://gitlab.com/araffin/rl-baselines3-zoo/badges/master/pipeline.svg)](https://gitlab.com/araffin/rl-baselines3-zoo/-/commits/master) [![coverage report](https://gitlab.com/araffin/rl-baselines3-zoo/badges/master/coverage.svg)](https://gitlab.com/araffin/rl-baselines3-zoo/-/commits/master)
+[![pipeline status](https://gitlab.com/araffin/rl-baselines3-zoo/badges/master/pipeline.svg)](https://gitlab.com/araffin/rl-baselines3-zoo/-/commits/master) [![coverage report](https://gitlab.com/araffin/rl-baselines3-zoo/badges/master/coverage.svg)](https://gitlab.com/araffin/rl-baselines3-zoo/-/commits/master) [![codestyle](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 
 
@@ -16,6 +16,8 @@ Goals of this repository:
 2. Benchmark the different Reinforcement Learning algorithms
 3. Provide tuned hyperparameters for each environment and RL algorithm
 4. Have fun with the trained agents!
+
+This is the SB3 version of the original SB2 [rl-zoo](https://github.com/araffin/rl-baselines-zoo).
 
 ## Enjoy a Trained Agent
 
@@ -72,16 +74,40 @@ Save a checkpoint of the agent every 100000 steps:
 python train.py --algo td3 --env HalfCheetahBulletEnv-v0 --save-freq 100000
 ```
 
-
 Continue training (here, load pretrained agent for Breakout and continue training for 5000 steps):
 ```
 python train.py --algo a2c --env BreakoutNoFrameskip-v4 -i rl-trained-agents/a2c/BreakoutNoFrameskip-v4_1/BreakoutNoFrameskip-v4.zip -n 5000
 ```
 
+When using off-policy algorithms, you can also save the replay buffer after training:
+```
+python train.py --algo sac --env Pendulum-v0 --save-replay-buffer
+```
+It will be automatically loaded if present when continuing training.
+
+
+## Hyperparameter yaml syntax
+
+The syntax used in `hyperparameters/algo_name.yml` for setting hyperparameters (likewise the syntax to [overwrite hyperparameters](https://github.com/DLR-RM/rl-baselines3-zoo#overwrite-hyperparameters) on the cli) may be specialized if the argument is a function.  See examples in the `hyperparameters/` directory. For example:
+
+- Specify a linear schedule for the learning rate:
+
+```yaml
+  learning_rate: lin_0.012486195510232303
+```
+
+Specify a different activation function for the network:
+
+```yaml
+  policy_kwargs: "dict(activation_fn=nn.ReLU)"
+```
 
 ## Hyperparameter Tuning
 
 We use [Optuna](https://optuna.org/) for optimizing the hyperparameters.
+Not all hyperparameters are tuned, and tuning enforces certain default hyperparameter settings that may be different from the official defaults. See [utils/hyperparams_opt.py](https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/utils/hyperparams_opt.py) for the current settings for each agent.
+
+Hyperparameters not specified in [utils/hyperparams_opt.py](https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/utils/hyperparams_opt.py) are taken from the associated YAML file and fallback to the default values of SB3 if not present.
 
 Note: hyperparameters search is not implemented for DQN for now.
 when using SuccessiveHalvingPruner ("halving"), you must specify `--n-jobs > 1`
@@ -95,21 +121,42 @@ python train.py --algo ppo --env MountainCar-v0 -n 50000 -optimize --n-trials 10
 
 Distributed optimization using a shared database is also possible (see the corresponding [Optuna documentation](https://optuna.readthedocs.io/en/latest/tutorial/distributed.html)):
 ```
-python train.py --algo ppo --env MountainCar-v0 -optimize --study-name test --storage sqlite:///example.db 
+python train.py --algo ppo --env MountainCar-v0 -optimize --study-name test --storage sqlite:///example.db
 ```
+
+### Hyperparameters search space
+
+Note that the default hyperparameters used in the zoo when tuning are not always the same as the defaults provided in [stable-baselines3](https://stable-baselines3.readthedocs.io/en/master/modules/base.html). Consult the latest source code to be sure of these settings. For example:
+
+- PPO tuning assumes a network architecture with `ortho_init = False` when tuning, though it is `True` by [default](https://stable-baselines3.readthedocs.io/en/master/modules/ppo.html#ppo-policies). You can change that by updating [utils/hyperparams_opt.py](https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/utils/hyperparams_opt.py).
+
+- Non-epsodic rollout in TD3 and DDPG assumes `gradient_steps = train_freq` and so tunes only `train_freq` to reduce the search space.  
+
+When working with continuous actions, we recommend to enable [gSDE](https://arxiv.org/abs/2005.05719) by uncommenting lines in [utils/hyperparams_opt.py](https://github.com/DLR-RM/rl-baselines3-zoo/blob/master/utils/hyperparams_opt.py).
+
+## Env normalization
+
+In the hyperparameter file, `normalize: True` means that the training environment will be wrapped in a [VecNormalize](https://github.com/DLR-RM/stable-baselines3/blob/master/stable_baselines3/common/vec_env/vec_normalize.py#L13) wrapper.
+
+[Normalization uses](https://github.com/DLR-RM/rl-baselines3-zoo/issues/64) the default parameters of `VecNormalize`, with the exception of `gamma` which is set to match that of the agent.  This can be [overridden](https://github.com/DLR-RM/rl-baselines3-zoo/blob/v0.10.0/hyperparams/sac.yml#L239) using the appropriate `hyperparameters/algo_name.yml`, e.g.
+
+```yaml
+  normalize: "{'norm_obs': True, 'norm_reward': False}"
+```
+
 
 ## Env Wrappers
 
 You can specify in the hyperparameter config one or more wrapper to use around the environment:
 
 for one wrapper:
-```
+```yaml
 env_wrapper: gym_minigrid.wrappers.FlatObsWrapper
 ```
 
 for multiple, specify a list:
 
-```
+```yaml
 env_wrapper:
     - utils.wrappers.DoneOnSuccessWrapper:
         reward_offset: 1.0
@@ -143,9 +190,11 @@ python -m utils.record_video --algo ppo --env BipedalWalkerHardcore-v2 -n 1000
 ```
 
 
-## Current Collection: 120+ Trained Agents!
+## Current Collection: to be added soon (after v1.0 release)
 
-Scores can be found in `benchmark.md`. To compute them, simply run `python -m utils.benchmark`.
+Final performance of the trained agents can be found in `benchmark.md`. To compute them, simply run `python -m utils.benchmark`.
+
+*NOTE: this is not a quantitative benchmark as it corresponds to only one run (cf [issue #38](https://github.com/araffin/rl-baselines-zoo/issues/38)). This benchmark is meant to check algorithm (maximal) performance, find potential bugs and also allow users to have access to pretrained agents.*
 
 ### Atari Games
 

@@ -1,69 +1,25 @@
-import os
 import argparse
+import os
 
-import gym
-import numpy as np
-from stable_baselines3.common.vec_env import VecVideoRecorder, VecFrameStack, VecNormalize
+from stable_baselines3.common.vec_env import DummyVecEnv, VecEnvWrapper, VecVideoRecorder
 
-from utils import ALGOS, create_test_env, get_saved_hyperparams, get_latest_run_id
 from utils import StoreDict
 
 import deep_quintic
 
+from utils.utils import ALGOS, create_test_env, get_latest_run_id, get_saved_hyperparams
+
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    '--env',
-    help='environment ID',
-    type=str,
-    default='CartPole-v1')
-parser.add_argument(
-    '-f', '--folder',
-    help='Log folder',
-    type=str,
-    default='rl-trained-agents')
-parser.add_argument(
-    '-o', '--output-folder',
-    help='Output folder',
-    type=str,
-    default='logs/videos/')
-parser.add_argument(
-    '--algo',
-    help='RL Algorithm',
-    default='ppo',
-    type=str,
-    required=False,
-    choices=list(ALGOS.keys()))
-parser.add_argument(
-    '-n',
-    '--n-timesteps',
-    help='number of timesteps',
-    default=1000,
-    type=int)
-parser.add_argument(
-    '--n-envs',
-    help='number of environments',
-    default=1,
-    type=int)
-parser.add_argument(
-    '--deterministic',
-    action='store_true',
-    default=False,
-    help='Use deterministic actions')
-parser.add_argument(
-    '--seed',
-    help='Random generator seed',
-    type=int,
-    default=0)
-parser.add_argument(
-    '--no-render',
-    action='store_true',
-    default=False,
-    help='Do not render the environment (useful for tests)')
-parser.add_argument(
-    '--exp-id',
-    help='Experiment ID (default: 0: latest, -1: no exp folder)',
-    default=0,
-    type=int)
+parser.add_argument("--env", help="environment ID", type=str, default="CartPole-v1")
+parser.add_argument("-f", "--folder", help="Log folder", type=str, default="rl-trained-agents")
+parser.add_argument("-o", "--output-folder", help="Output folder", type=str, default="logs/videos/")
+parser.add_argument("--algo", help="RL Algorithm", default="ppo", type=str, required=False, choices=list(ALGOS.keys()))
+parser.add_argument("-n", "--n-timesteps", help="number of timesteps", default=1000, type=int)
+parser.add_argument("--n-envs", help="number of environments", default=1, type=int)
+parser.add_argument("--deterministic", action="store_true", default=False, help="Use deterministic actions")
+parser.add_argument("--seed", help="Random generator seed", type=int, default=0)
+parser.add_argument("--no-render", action="store_true", default=False, help="Do not render the environment (useful for tests)")
+parser.add_argument("--exp-id", help="Experiment ID (default: 0: latest, -1: no exp folder)", default=0, type=int)
 parser.add_argument('--env-kwargs', type=str, nargs='+', action=StoreDict,
                     help='Optional keyword argument to pass to the env constructor')
 parser.add_argument('--load-best', action='store_true', default=False,
@@ -97,7 +53,7 @@ stats_path = os.path.join(log_path, env_id)
 hyperparams, stats_path = get_saved_hyperparams(stats_path)
 
 
-is_atari = 'NoFrameskip' in env_id
+is_atari = "NoFrameskip" in env_id
 env_kwargs = {} if args.env_kwargs is None else args.env_kwargs
 
 env = create_test_env(env_id,
@@ -114,27 +70,29 @@ model = ALGOS[algo].load(model_path)
 obs = env.reset()
 
 # Note: apparently it renders by default
-env = VecVideoRecorder(env,
-                       video_folder,
-                       record_video_trigger=lambda x: x == 0,
-                       video_length=video_length,
-                       name_prefix=f"{algo}-{env_id}")
+env = VecVideoRecorder(
+    env,
+    video_folder,
+    record_video_trigger=lambda x: x == 0,
+    video_length=video_length,
+    name_prefix=f"{algo}-{env_id}",
+)
 
 env.reset()
 for _ in range(video_length + 1):
-    # action = [env.action_space.sample()]
     action, _ = model.predict(obs, deterministic=deterministic)
-    if isinstance(env.action_space, gym.spaces.Box):
-        action = np.clip(action, env.action_space.low, env.action_space.high)
     obs, _, _, _ = env.step(action)
 
 # Workaround for https://github.com/openai/gym/issues/893
 if n_envs == 1 and 'Bullet' not in env_id and not is_atari and 'Wolfgang' not in env_id:
     env = env.venv
     # DummyVecEnv
-    while isinstance(env, VecNormalize) or isinstance(env, VecFrameStack):
+    while isinstance(env, VecEnvWrapper):
         env = env.venv
-    env.envs[0].env.close()
+    if isinstance(env, DummyVecEnv):
+        env.envs[0].env.close()
+    else:
+        env.close()
 else:
     # SubprocVecEnv
     env.close()
