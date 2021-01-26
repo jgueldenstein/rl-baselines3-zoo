@@ -206,8 +206,6 @@ def sample_ppo_params(trial, n_envs):
         'use_sde': use_sde,
         'sde_sample_freq': sde_sample_freq,
         'policy_kwargs': dict(log_std_init=log_std_init, net_arch=net_arch, activation_fn=activation_fn, ortho_init=ortho_init)
-        'policy_kwargs': dict(log_std_init=log_std_init, net_arch=net_arch,
-                              activation_fn=activation_fn, ortho_init=ortho_init)
     }
 
 

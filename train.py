@@ -68,10 +68,6 @@ if __name__ == '__main__':  # noqa: C901
                         default='tpe', choices=['random', 'tpe', 'skopt'])
     parser.add_argument('--pruner', help='Pruner to use when optimizing hyperparameters', type=str,
                         default='median', choices=['halving', 'median', 'none'])
-    parser.add_argument('--storage', help='Database storage for distributed optimization', type=str,
-                        default=None)
-    parser.add_argument('--study_name', help='Study name for distributed optimization', type=str,
-                        default=None)
     parser.add_argument('--n-startup-trials', help='Number of trials before using optuna sampler',
                         type=int, default=10)
     parser.add_argument('--n-evaluations', help='Number of evaluations for hyperparameter optimization',
