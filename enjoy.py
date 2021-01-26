@@ -1,10 +1,7 @@
 import argparse
 import importlib
-<<<<<<< HEAD
 import yaml
-=======
 import os
->>>>>>> upstream/master
 
 import numpy as np
 import torch as th
