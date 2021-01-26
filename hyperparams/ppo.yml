@@ -13,7 +13,6 @@ WolfgangEnv-v1:
   learning_rate: 0.000107739192714429
   clip_range: 0.2
   use_sde: False
-  use_init_bias: False
   vf_coef: 0.210933418438296
 
 WolfgangEnv-v1-opt:
