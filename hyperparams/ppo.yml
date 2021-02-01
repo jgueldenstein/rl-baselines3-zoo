@@ -1,4 +1,4 @@
-WolfgangEnv-v1:
+WolfgangBulletEnv-v1:
   normalize: true
   n_envs: 16
   n_timesteps: !!float 5e7
@@ -15,13 +15,13 @@ WolfgangEnv-v1:
   use_sde: False
   vf_coef: 0.210933418438296
 
-WolfgangEnv-v1-opt:
+WolfgangBulletEnv-v1-opt:
   normalize: true
   n_envs: 16
   n_timesteps: !!float 5e7
   policy: 'MlpPolicy'
 
-WolfgangEnv-v1-sde:
+WolfgangBulletEnv-v1-sde:
   normalize: true
   n_envs: 32
   n_timesteps: !!float 5e7
@@ -39,7 +39,7 @@ WolfgangEnv-v1-sde:
   sde_sample_freq: 4
   max_grad_norm: 0.5
 
-WolfgangEnv-v1-gaus:
+WolfgangBulletEnv-v1-gaus:
   normalize: true
   n_envs: 32
   n_timesteps: !!float 5e7
