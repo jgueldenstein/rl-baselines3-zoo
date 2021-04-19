@@ -16,6 +16,9 @@ import utils.import_envs  # noqa: F401 pytype: disable=import-error
 from utils.exp_manager import ExperimentManager
 from utils.utils import ALGOS, StoreDict
 
+import sys
+print(sys.path)
+
 import deep_quintic
 
 seaborn.set()
