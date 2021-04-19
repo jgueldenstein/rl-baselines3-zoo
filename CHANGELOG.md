@@ -1,10 +1,50 @@
-## Pre-Release 0.11.0a4 (WIP)
+## Release 1.1.0a4 (WIP)
+
+### Breaking Changes
+
+### New Features
+- Add support for recording videos of best models and checkpoints (@mcres)
+
+### Bug fixes
+- Fixed video rendering for PyBullet envs on Linux
+- Fixed `get_latest_run_id()` so it works in Windows too (@NicolasHaeffner)
+
+### Documentation
+
+### Other
+- Added `is_bullet()` to `ExperimentManager`
+- Simplify `close()` for the enjoy script
+
+## Release 1.0 (2021-03-17)
+
+### Breaking Changes
+- Upgrade to SB3 >= 1.0
+- Upgrade to sb3-contrib >= 1.0
+
+### New Features
+- Added 100+ trained agents + benchmark file
+- Add support for loading saved model under python 3.8+ (no retraining possible)
+- Added Robotics pre-trained agents (@sgillen)
+
+### Bug fixes
+- Bug fixes for `HER` handling action noise
+- Fixed double reset bug with `HER` and enjoy script
+
+### Documentation
+- Added doc about plotting scripts
+
+### Other
+- Updated `HER` hyperparameters
+
+## Pre-Release 0.11.1 (2021-02-27)
 
 ### Breaking Changes
 - Removed `LinearNormalActionNoise`
 - Evaluation is now deterministic by default, except for Atari games
 - `sb3_contrib` is now required
 - `TimeFeatureWrapper` was moved to the contrib repo
+- Replaced old `plot_train.py` script with updated `plot_training_success.py`
+- Renamed ``n_episodes_rollout`` to ``train_freq`` tuple to match latest version of SB3
 
 ### New Features
 - Added option to choose which `VecEnv` class to use for multiprocessing
@@ -31,6 +71,7 @@
 - Updated `DQN` hyperparameters for CartPole
 - Do not wrap channel-first image env (now natively supported by SB3)
 - Removed hack to log success rate
+- Simplify plot script
 
 ## Pre-Release 0.10.0 (2020-10-28)
 

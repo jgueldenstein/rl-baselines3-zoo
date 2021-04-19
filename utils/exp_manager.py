@@ -1,6 +1,4 @@
 import argparse
-import csv
-import json
 import os
 import time
 import warnings
@@ -18,7 +16,6 @@ from optuna.samplers import BaseSampler, RandomSampler, TPESampler
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback, EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
 from stable_baselines3.common.preprocessing import is_image_space, is_image_space_channels_first
 from stable_baselines3.common.sb2_compat.rmsprop_tf_like import RMSpropTFLike  # noqa: F401
@@ -152,7 +149,7 @@ class ExperimentManager(object):
         # Create env to have access to action space for action noise
         env = self.create_envs(self.n_envs, no_log=False)
 
-        self._hyperparams = self._preprocess_action_noise(hyperparams, env)
+        self._hyperparams = self._preprocess_action_noise(hyperparams, saved_hyperparams, env)
 
         if self.continue_training:
             model = self._load_pretrained_agent(self._hyperparams, env)
@@ -312,6 +309,10 @@ class ExperimentManager(object):
         hyperparams = self._preprocess_her_model_class(hyperparams)
         hyperparams = self._preprocess_schedules(hyperparams)
 
+        # Pre-process train_freq
+        if "train_freq" in hyperparams and isinstance(hyperparams["train_freq"], list):
+            hyperparams["train_freq"] = tuple(hyperparams["train_freq"])
+
         # Should we overwrite the number of timesteps?
         if self.n_timesteps > 0:
             if self.verbose:
@@ -349,11 +350,13 @@ class ExperimentManager(object):
 
         return hyperparams, env_wrapper, callbacks
 
-    def _preprocess_action_noise(self, hyperparams: Dict[str, Any], env: VecEnv) -> Dict[str, Any]:
+    def _preprocess_action_noise(
+        self, hyperparams: Dict[str, Any], saved_hyperparams: Dict[str, Any], env: VecEnv
+    ) -> Dict[str, Any]:
         # Special case for HER
-        algo = hyperparams["model_class"] if self.algo == "her" else self.algo
-        # Parse noise string for DDPG and SAC
-        if algo in ["ddpg", "sac", "td3", "tqc", "ddpg"] and hyperparams.get("noise_type") is not None:
+        algo = saved_hyperparams["model_class"] if self.algo == "her" else self.algo
+        # Parse noise string
+        if algo in ["ddpg", "sac", "td3", "tqc"] and hyperparams.get("noise_type") is not None:
             noise_type = hyperparams["noise_type"].strip()
             noise_std = hyperparams["noise_std"]
 
@@ -421,6 +424,10 @@ class ExperimentManager(object):
     @staticmethod
     def is_atari(env_id: str) -> bool:
         return "AtariEnv" in gym.envs.registry.env_specs[env_id].entry_point
+
+    @staticmethod
+    def is_bullet(env_id: str) -> bool:
+        return "pybullet_envs" in gym.envs.registry.env_specs[env_id].entry_point
 
     @staticmethod
     def is_robotics_env(env_id: str) -> bool:
