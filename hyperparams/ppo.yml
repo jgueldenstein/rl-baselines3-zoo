@@ -14,7 +14,8 @@ WolfgangBulletEnv-v1:
   clip_range: 0.2
   use_sde: False
   vf_coef: 0.210933418438296
-  callback: deep_quintic.callback.Callback
+  callback:
+    - deep_quintic.callbacks.RewardLogCallback
 
 WolfgangBulletEnv-v1-opt:
   normalize: true
