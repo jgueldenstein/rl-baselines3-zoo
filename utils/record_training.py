@@ -3,6 +3,7 @@ import os
 import re
 import shutil
 import subprocess
+from copy import deepcopy
 
 from utils.utils import ALGOS, get_latest_run_id
 
@@ -17,9 +18,6 @@ if __name__ == "__main__":  # noqa: C901
     parser.add_argument("--deterministic", action="store_true", default=False, help="Use deterministic actions")
     parser.add_argument("-g", "--gif", action="store_true", default=False, help="Convert final video to gif")
     parser.add_argument("--seed", help="Random generator seed", type=int, default=0)
-    parser.add_argument(
-        "--no-render", action="store_true", default=False, help="Do not render the environment (useful for tests)"
-    )
     parser.add_argument("--exp-id", help="Experiment ID (default: 0: latest, -1: no exp folder)", default=0, type=int)
     args = parser.parse_args()
 
@@ -72,6 +70,7 @@ if __name__ == "__main__":  # noqa: C901
         str(n_envs),
         "--seed",
         str(seed),
+        # Disable rendering to generate videos faster
         "--no-render",
     ]
     if deterministic is not None:
@@ -88,10 +87,10 @@ if __name__ == "__main__":  # noqa: C901
 
     args_checkpoint = args_final_model + ["--load-checkpoint"]
     args_checkpoint.append("0")
-    for cp in checkpoints:
-        args_checkpoint[-1] = str(cp)
+    for checkpoint in checkpoints:
+        args_checkpoint[-1] = str(checkpoint)
         return_code = subprocess.call(["python", "-m", "utils.record_video"] + args_checkpoint)
-        assert return_code == 0, f"Failed to record the {cp} checkpoint model"
+        assert return_code == 0, f"Failed to record the {checkpoint} checkpoint model"
 
     # add text to each video
     episode_videos_names = [dir_ent.name for dir_ent in os.scandir(video_folder) if dir_ent.name.endswith(".mp4")]
@@ -99,7 +98,7 @@ if __name__ == "__main__":  # noqa: C901
     checkpoints_videos_names = list(filter(lambda x: x.startswith("checkpoint"), episode_videos_names))
 
     # sort checkpoints by the number of steps
-    def get_number_from_checkpoint_filename(filename):
+    def get_number_from_checkpoint_filename(filename: str) -> int:
         match = re.search("checkpoint-(.*?)-", filename)
         number = 0
         if match is not None:
@@ -116,7 +115,7 @@ if __name__ == "__main__":  # noqa: C901
     episode_videos_path = [os.path.join(video_folder, video) for video in episode_videos_names]
 
     # the text displayed will be the first two words of the file
-    def get_text_from_video_filename(filename):
+    def get_text_from_video_filename(filename: str) -> str:
         match = re.search(r"^(\w+)-(\w+)", filename)
         text = ""
         if match is not None:
@@ -125,20 +124,24 @@ if __name__ == "__main__":  # noqa: C901
         return text
 
     episode_videos_names = list(map(get_text_from_video_filename, episode_videos_names))
+    # In some cases, ffmpeg needs a tmp file
+    # https://stackoverflow.com/questions/28877049/issue-with-overwriting-file-while-using-ffmpeg-for-converting
+    tmp_videos_path = deepcopy(episode_videos_path)
+    tmp_videos_path = [path_[:-4] + "_with_text" + ".mp4" for path_ in tmp_videos_path]
+
     for i in range(len(episode_videos_path)):
         ffmpeg_command_to_add_text = (
-            f'ffmpeg -i {episode_videos_path[i]} -vf drawtext="fontfile=/path/to/font.ttf:'
+            f'ffmpeg -i {episode_videos_path[i]} -vf drawtext="'
             f"text='{episode_videos_names[i]}': fontcolor=white: fontsize=24: box=1: boxcolor=black@0.5:"
-            f'boxborderw=5: x=(w-text_w)/2: y=12" -codec:a copy {episode_videos_path[i]} -y -hide_banner -loglevel error'
+            f'boxborderw=5: x=(w-text_w)/2: y=12" -codec:a copy {tmp_videos_path[i]} -y -hide_banner -loglevel error'
         )
-
         os.system(ffmpeg_command_to_add_text)
 
     # join videos together and convert to gif if needed
     ffmpeg_text_file = os.path.join(video_folder, "tmp.txt")
     with open(ffmpeg_text_file, "a") as file:
-        for evp in episode_videos_path:
-            file.write(f"file {evp}\n")
+        for video_path in tmp_videos_path:
+            file.write(f"file {video_path}\n")
 
     final_video_path = os.path.abspath(os.path.join(video_folder, "training.mp4"))
     os.system(f"ffmpeg -f concat -safe 0 -i {ffmpeg_text_file} -c copy {final_video_path} -hide_banner -loglevel error")
@@ -149,3 +152,7 @@ if __name__ == "__main__":  # noqa: C901
         final_gif_path = os.path.abspath(os.path.join(video_folder, "training.gif"))
         os.system(f"ffmpeg -i {final_video_path} -vf fps=10 {final_gif_path} -hide_banner -loglevel error")
         print(f"Saving gif to {final_gif_path}")
+
+    # Remove tmp video files
+    for video_path in tmp_videos_path:
+        os.remove(video_path)
