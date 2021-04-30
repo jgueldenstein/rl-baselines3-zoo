@@ -6,6 +6,7 @@ import deep_quintic
 
 from utils.exp_manager import ExperimentManager
 from utils.utils import ALGOS, create_test_env, get_latest_run_id, get_saved_hyperparams
+import yaml
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -73,6 +74,14 @@ if __name__ == "__main__":
 
     is_atari = ExperimentManager.is_atari(env_id)
 
+    # load env_kwargs
+    args_path = os.path.join(log_path, env_id, "args.yml")
+    if os.path.isfile(args_path):
+        with open(args_path, 'r') as f:
+            loaded_args = yaml.load(f, Loader=yaml.UnsafeLoader)  # pytype: disable=module-attr
+            if loaded_args['env_kwargs'] is not None:
+                env_kwargs = loaded_args['env_kwargs']
+
     env = create_test_env(
         env_id,
         n_envs=n_envs,
@@ -81,6 +90,7 @@ if __name__ == "__main__":
         log_dir=None,
         should_render=not args.no_render,
         hyperparams=hyperparams,
+        env_kwargs=env_kwargs,
     )
 
     model = ALGOS[algo].load(model_path)
