@@ -598,7 +598,7 @@ class ExperimentManager(object):
         # Hack to use DDPG/TD3 noise sampler
         trial.n_actions = self.n_actions
         # Sample candidate hyperparameters
-        kwargs.update(HYPERPARAMS_SAMPLER[self.algo](trial))
+        kwargs.update(HYPERPARAMS_SAMPLER[self.algo](trial, self.n_envs))
 
         model = ALGOS[self.algo](
             env=self.create_envs(self.n_envs, no_log=True),
