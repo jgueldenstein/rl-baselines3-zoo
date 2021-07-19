@@ -1,9 +1,9 @@
 WolfgangBulletEnv-v1:
   normalize: true
   n_envs: 8
-  n_timesteps: !!float 1e7
+  n_timesteps: !!float 5e7
   policy: 'MlpPolicy'
-  policy_kwargs: "dict(net_arch=[dict(pi=[512,512], vf=[512,512])], activation_fn=nn.Tanh, log_std_init=-3.5, distribution_type='FixedVarDiagGaussian')"
+  policy_kwargs: "dict(net_arch=[dict(pi=[512,512], vf=[512,512])], activation_fn=nn.Tanh, log_std_init=-3.5, distribution_type='FixedVarSquashedDiagGaussian')"
   set_action_bias_from_env: True
   n_steps: 256
   batch_size: 32
