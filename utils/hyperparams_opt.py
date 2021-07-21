@@ -5,8 +5,11 @@ import optuna
 from sb3_contrib import TQC
 from stable_baselines3 import DDPG, DQN, SAC, TD3
 from stable_baselines3.common.noise import NormalActionNoise, OrnsteinUhlenbeckActionNoise
+from stable_baselines3.common.distributions import SquashedDiagGaussianDistribution, \
+    FixedVarSquashedDiagGaussianDistribution, FixedVarDiagGaussianDistribution, Beta
 from torch import nn as nn
 
+from deep_quintic.callbacks import CmdVelIncreaseCallback
 from utils import linear_schedule
 
 
@@ -24,26 +27,30 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     lr_schedule = "constant"
     # Uncomment to enable learning rate schedule
     # lr_schedule = trial.suggest_categorical('lr_schedule', ['linear', 'constant'])
-    #ent_coef = trial.suggest_loguniform("ent_coef", 0.00000001, 0.1)
+    # ent_coef = trial.suggest_loguniform("ent_coef", 0.00000001, 0.1)
     ent_coef = 0.0
     clip_range = trial.suggest_categorical("clip_range", [0.1, 0.2, 0.3, 0.4])
     n_epochs = trial.suggest_categorical("n_epochs", [1, 5, 10, 20])
     gae_lambda = trial.suggest_categorical("gae_lambda", [0.8, 0.9, 0.92, 0.95, 0.98, 0.99, 1.0])
     max_grad_norm = trial.suggest_categorical("max_grad_norm", [0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 5])
     vf_coef = trial.suggest_uniform("vf_coef", 0, 1)
-    #net_arch = trial.suggest_categorical("net_arch", ["small", "medium", "large"])
+    # net_arch = trial.suggest_categorical("net_arch", ["small", "medium", "large"])
     net_arch = "large"
     use_sde = False
-    # Uncomment for gSDE (continuous actions)
-    # log_std_init = trial.suggest_uniform("log_std_init", -4, 1)
     # Uncomment for gSDE (continuous action)
     # sde_sample_freq = trial.suggest_categorical("sde_sample_freq", [-1, 8, 16, 32, 64, 128, 256])
     # Orthogonal initialization
     ortho_init = True
     # ortho_init = trial.suggest_categorical('ortho_init', [False, True])
     # activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu', 'elu', 'leaky_relu'])
-    activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
+    activation_fn = 'tanh'
+    # activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
     log_std_init = trial.suggest_uniform("log_std_init", -4, 0)
+
+    distribution_type = 'FixedVarSquashedDiagGaussian'
+    # distribution_type = trial.suggest_categorical('distribution_type',
+    #                                              ['FixedVarSquashedDiagGaussian', 'FixedVarDiagGaussian',
+    #                                               'SquashedDiagGaussian', 'Beta'])
 
     if batch_size > n_steps * n_envs:
         batch_size = n_steps
@@ -60,8 +67,14 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     }[net_arch]
 
     activation_fn = {"tanh": nn.Tanh, "relu": nn.ReLU, "elu": nn.ELU, "leaky_relu": nn.LeakyReLU}[activation_fn]
+    distribution_type = {'FixedVarSquashedDiagGaussian': FixedVarSquashedDiagGaussianDistribution,
+                         'FixedVarDiagGaussian': FixedVarDiagGaussianDistribution,
+                         'SquashedDiagGaussian': SquashedDiagGaussianDistribution,
+                         'Beta': Beta}[distribution_type]
 
     return {
+        'normalize': True,
+        'set_action_bias_from_env': True,
         'n_steps': n_steps,
         'batch_size': batch_size,
         'gamma': gamma,
@@ -73,9 +86,12 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
         'max_grad_norm': max_grad_norm,
         'vf_coef': vf_coef,
         'use_sde': use_sde,
-        #'sde_sample_freq': sde_sample_freq,
-        'policy_kwargs': dict(log_std_init=log_std_init, net_arch=net_arch, activation_fn=activation_fn, ortho_init=ortho_init)
+        # 'sde_sample_freq': sde_sample_freq,
+        'policy_kwargs': dict(log_std_init=log_std_init, net_arch=net_arch, activation_fn=activation_fn,
+                              ortho_init=ortho_init, distribution_type=distribution_type),
+        'callback': CmdVelIncreaseCallback
     }
+
 
 def sample_a2c_params(trial: optuna.Trial) -> Dict[str, Any]:
     """
