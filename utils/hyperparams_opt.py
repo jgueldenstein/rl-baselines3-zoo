@@ -19,18 +19,26 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     :return:
     """
     batch_size = trial.suggest_categorical("batch_size", [8, 16, 32, 64, 128, 256, 512])
+    #batch_size = 32
     n_steps = trial.suggest_categorical("n_steps", [8, 16, 32, 64, 128, 256, 512, 1024, 2048])
+    #n_steps = 256
     gamma = trial.suggest_categorical("gamma", [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 0.9999])
+    #gamma = 0.98
     learning_rate = trial.suggest_loguniform("learning_rate", 1e-5, 1)
+    #learning_rate = 0.000107739192714429
     lr_schedule = "constant"
     # Uncomment to enable learning rate schedule
     # lr_schedule = trial.suggest_categorical('lr_schedule', ['linear', 'constant'])
     # ent_coef = trial.suggest_loguniform("ent_coef", 0.00000001, 0.1)
     ent_coef = 0.0
     clip_range = trial.suggest_categorical("clip_range", [0.1, 0.2, 0.3, 0.4])
+    #clip_range = 0.2
     n_epochs = trial.suggest_categorical("n_epochs", [1, 5, 10, 20])
+    #n_epochs = 5
     gae_lambda = trial.suggest_categorical("gae_lambda", [0.8, 0.9, 0.92, 0.95, 0.98, 0.99, 1.0])
+    #gae_lambda = 0.8
     max_grad_norm = trial.suggest_categorical("max_grad_norm", [0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 5])
+    #max_grad_norm = 0.5
     vf_coef = trial.suggest_uniform("vf_coef", 0, 1)
     # net_arch = trial.suggest_categorical("net_arch", ["small", "medium", "large"])
     net_arch = "large"
@@ -44,6 +52,7 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     activation_fn = 'tanh'
     # activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
     log_std_init = trial.suggest_uniform("log_std_init", -4, 0)
+    #log_std_init = -3
 
     distribution_type = 'FixedVarSquashedDiagGaussian'
     # distribution_type = trial.suggest_categorical('distribution_type',
