@@ -1,5 +1,6 @@
 import argparse
 import os
+import pickle as pkl
 import time
 import warnings
 from collections import OrderedDict
@@ -13,6 +14,10 @@ import yaml
 from optuna.integration.skopt import SkoptSampler
 from optuna.pruners import BasePruner, MedianPruner, SuccessiveHalvingPruner
 from optuna.samplers import BaseSampler, RandomSampler, TPESampler
+from optuna.visualization import plot_optimization_history, plot_param_importances
+
+# For using HER with GoalEnv
+from stable_baselines3 import HerReplayBuffer  # noqa: F401
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback, EvalCallback
 from stable_baselines3.common.env_util import make_vec_env
@@ -21,7 +26,6 @@ from stable_baselines3.common.preprocessing import is_image_space, is_image_spac
 from stable_baselines3.common.sb2_compat.rmsprop_tf_like import RMSpropTFLike  # noqa: F401
 from stable_baselines3.common.utils import constant_fn
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnv, VecFrameStack, VecNormalize, VecTransposeImage
-from stable_baselines3.common.vec_env.obs_dict_wrapper import ObsDictWrapper
 
 # For custom activation fn
 from torch import nn as nn  # noqa: F401
@@ -62,6 +66,7 @@ class ExperimentManager(object):
         n_jobs: int = 1,
         sampler: str = "tpe",
         pruner: str = "median",
+        optimization_log_path: Optional[str] = None,
         n_startup_trials: int = 0,
         n_evaluations: int = 1,
         truncate_last_trajectory: bool = False,
@@ -71,6 +76,8 @@ class ExperimentManager(object):
         save_replay_buffer: bool = False,
         verbose: int = 1,
         vec_env_type: str = "dummy",
+        n_eval_envs: int = 1,
+        no_optim_plots: bool = False,
     ):
         super(ExperimentManager, self).__init__()
         self.algo = algo
@@ -84,6 +91,7 @@ class ExperimentManager(object):
         self.env_wrapper = None
         self.frame_stack = None
         self.seed = seed
+        self.optimization_log_path = optimization_log_path
 
         self.vec_env_class = {"dummy": DummyVecEnv, "subproc": SubprocVecEnv}[vec_env_type]
 
@@ -95,6 +103,7 @@ class ExperimentManager(object):
         self.save_freq = save_freq
         self.eval_freq = eval_freq
         self.n_eval_episodes = n_eval_episodes
+        self.n_eval_envs = n_eval_envs
 
         self.n_envs = 1  # it will be updated when reading hyperparams
         self.n_actions = None  # For DDPG/TD3 action noise objects
@@ -109,6 +118,7 @@ class ExperimentManager(object):
         self.optimize_hyperparameters = optimize_hyperparameters
         self.storage = storage
         self.study_name = study_name
+        self.no_optim_plots = no_optim_plots
         # maximum number of trials for finding the best hyperparams
         self.n_trials = n_trials
         # number of parallel jobs when doing hyperparameter search
@@ -245,6 +255,7 @@ class ExperimentManager(object):
         saved_hyperparams = OrderedDict([(key, hyperparams[key]) for key in sorted(hyperparams.keys())])
 
         if self.verbose > 0:
+            print("Default hyperparameters for environment (ones being tuned will be overridden):")
             pprint(saved_hyperparams)
 
         return hyperparams, saved_hyperparams
@@ -288,15 +299,6 @@ class ExperimentManager(object):
             del hyperparams["normalize"]
         return hyperparams
 
-    def _preprocess_her_model_class(self, hyperparams: Dict[str, Any]) -> Dict[str, Any]:
-        # HER is only a wrapper around an algo
-        if self.algo == "her":
-            model_class = hyperparams["model_class"]
-            assert model_class in {"sac", "ddpg", "dqn", "td3", "tqc"}, f"{model_class} is not compatible with HER"
-            # Retrieve the model class
-            hyperparams["model_class"] = ALGOS[hyperparams["model_class"]]
-        return hyperparams
-
     def _preprocess_hyperparams(
         self, hyperparams: Dict[str, Any]
     ) -> Tuple[Dict[str, Any], Optional[Callable], List[BaseCallback]]:
@@ -305,8 +307,7 @@ class ExperimentManager(object):
         if self.verbose > 0:
             print(f"Using {self.n_envs} environments")
 
-        # Convert model class string to an object if needed (when using HER)
-        hyperparams = self._preprocess_her_model_class(hyperparams)
+        # Convert schedule strings to objects
         hyperparams = self._preprocess_schedules(hyperparams)
 
         # Pre-process train_freq
@@ -323,11 +324,11 @@ class ExperimentManager(object):
         # Pre-process normalize config
         hyperparams = self._preprocess_normalization(hyperparams)
 
-        # Pre-process policy keyword arguments
-        if "policy_kwargs" in hyperparams.keys():
-            # Convert to python object if needed
-            if isinstance(hyperparams["policy_kwargs"], str):
-                hyperparams["policy_kwargs"] = eval(hyperparams["policy_kwargs"])
+        # Pre-process policy/buffer keyword arguments
+        # Convert to python object if needed
+        for kwargs_key in {"policy_kwargs", "replay_buffer_class", "replay_buffer_kwargs"}:
+            if kwargs_key in hyperparams.keys() and isinstance(hyperparams[kwargs_key], str):
+                hyperparams[kwargs_key] = eval(hyperparams[kwargs_key])
 
         # Delete keys so the dict can be pass to the model constructor
         if "n_envs" in hyperparams.keys():
@@ -353,10 +354,9 @@ class ExperimentManager(object):
     def _preprocess_action_noise(
         self, hyperparams: Dict[str, Any], saved_hyperparams: Dict[str, Any], env: VecEnv
     ) -> Dict[str, Any]:
-        # Special case for HER
-        algo = saved_hyperparams["model_class"] if self.algo == "her" else self.algo
         # Parse noise string
-        if algo in ["ddpg", "sac", "td3", "tqc"] and hyperparams.get("noise_type") is not None:
+        # Note: only off-policy algorithms are supported
+        if hyperparams.get("noise_type") is not None:
             noise_type = hyperparams["noise_type"].strip()
             noise_std = hyperparams["noise_std"]
 
@@ -410,7 +410,7 @@ class ExperimentManager(object):
 
             save_vec_normalize = SaveVecNormalizeCallback(save_freq=1, save_path=self.params_path)
             eval_callback = EvalCallback(
-                self.create_envs(1, eval_env=True),
+                self.create_envs(self.n_eval_envs, eval_env=True),
                 callback_on_new_best=save_vec_normalize,
                 best_model_save_path=self.save_path,
                 n_eval_episodes=self.n_eval_episodes,
@@ -431,7 +431,8 @@ class ExperimentManager(object):
 
     @staticmethod
     def is_robotics_env(env_id: str) -> bool:
-        return "gym.envs.robotics" in gym.envs.registry.env_specs[env_id].entry_point
+        entry_point = gym.envs.registry.env_specs[env_id].entry_point
+        return "gym.envs.robotics" in entry_point or "panda_gym.envs" in entry_point
 
     def _maybe_normalize(self, env: VecEnv, eval_env: bool) -> VecEnv:
         """
@@ -522,12 +523,6 @@ class ExperimentManager(object):
                 print("Wrapping into a VecTransposeImage")
             env = VecTransposeImage(env)
 
-        # check if wrapper for dict support is needed
-        if self.algo == "her":
-            if self.verbose > 0:
-                print("Wrapping into a ObsDictWrapper")
-            env = ObsDictWrapper(env)
-
         return env
 
     def _load_pretrained_agent(self, hyperparams: Dict[str, Any], env: VecEnv) -> BaseAlgorithm:
@@ -552,11 +547,8 @@ class ExperimentManager(object):
 
         if os.path.exists(replay_buffer_path):
             print("Loading replay buffer")
-            if self.algo == "her":
-                # if we use HER we have to add an additional argument
-                model.load_replay_buffer(replay_buffer_path, self.truncate_last_trajectory)
-            else:
-                model.load_replay_buffer(replay_buffer_path)
+            # `truncate_last_traj` will be taken into account only if we use HER replay buffer
+            model.load_replay_buffer(replay_buffer_path, truncate_last_traj=self.truncate_last_trajectory)
         return model
 
     def _create_sampler(self, sampler_method: str) -> BaseSampler:
@@ -591,14 +583,15 @@ class ExperimentManager(object):
 
         kwargs = self._hyperparams.copy()
 
-        trial.model_class = None
-        if self.algo == "her":
-            trial.model_class = self._hyperparams.get("model_class", None)
-
         # Hack to use DDPG/TD3 noise sampler
         trial.n_actions = self.n_actions
+        # Hack when using HerReplayBuffer
+        trial.using_her_replay_buffer = kwargs.get("replay_buffer_class") == HerReplayBuffer
+        if trial.using_her_replay_buffer:
+            trial.her_kwargs = kwargs.get("replay_buffer_kwargs", {})
         # Sample candidate hyperparameters
-        kwargs.update(HYPERPARAMS_SAMPLER[self.algo](trial, self.n_envs))
+        sampled_hyperparams = HYPERPARAMS_SAMPLER[self.algo](trial, self.n_envs)
+        kwargs.update(sampled_hyperparams)
 
         model = ALGOS[self.algo](
             env=self.create_envs(self.n_envs, no_log=True),
@@ -611,17 +604,22 @@ class ExperimentManager(object):
 
         model.trial = trial
 
-        eval_env = self.create_envs(n_envs=1, eval_env=True)
+        eval_env = self.create_envs(n_envs=self.n_eval_envs, eval_env=True)
 
-        eval_freq = int(self.n_timesteps / self.n_evaluations)
+        optuna_eval_freq = int(self.n_timesteps / self.n_evaluations)
         # Account for parallel envs
-        eval_freq_ = max(eval_freq // model.get_env().num_envs, 1)
+        optuna_eval_freq = max(optuna_eval_freq // model.get_env().num_envs, 1)
         # Use non-deterministic eval for Atari
+        path = None
+        if self.optimization_log_path is not None:
+            path = os.path.join(self.optimization_log_path, f"trial_{str(trial.number)}")
         eval_callback = TrialEvalCallback(
             eval_env,
             trial,
+            best_model_save_path=path,
+            log_path=path,
             n_eval_episodes=self.n_eval_episodes,
-            eval_freq=eval_freq_,
+            eval_freq=optuna_eval_freq,
             deterministic=self.deterministic_eval,
         )
 
@@ -630,13 +628,16 @@ class ExperimentManager(object):
             # Free memory
             model.env.close()
             eval_env.close()
-        except AssertionError as e:
+        except (AssertionError, ValueError) as e:
             # Sometimes, random hyperparams can generate NaN
             # Free memory
             model.env.close()
             eval_env.close()
             # Prune hyperparams that generate NaNs
             print(e)
+            print("============")
+            print("Sampled hyperparams:")
+            pprint(sampled_hyperparams)
             raise optuna.exceptions.TrialPruned()
         is_pruned = eval_callback.is_pruned
         reward = eval_callback.last_mean_reward
@@ -699,7 +700,7 @@ class ExperimentManager(object):
 
         report_name = (
             f"report_{self.env_id}_{self.n_trials}-trials-{self.n_timesteps}"
-            f"-{self.sampler}-{self.pruner}_{int(time.time())}.csv"
+            f"-{self.sampler}-{self.pruner}_{int(time.time())}"
         )
 
         log_path = os.path.join(self.log_folder, self.algo, report_name)
@@ -709,4 +710,22 @@ class ExperimentManager(object):
 
         # Write report
         os.makedirs(os.path.dirname(log_path), exist_ok=True)
-        study.trials_dataframe().to_csv(log_path)
+        study.trials_dataframe().to_csv(f"{log_path}.csv")
+
+        # Save python object to inspect/re-use it later
+        with open(f"{log_path}.pkl", "wb+") as f:
+            pkl.dump(study, f)
+
+        # Skip plots
+        if self.no_optim_plots:
+            return
+
+        # Plot optimization result
+        try:
+            fig1 = plot_optimization_history(study)
+            fig2 = plot_param_importances(study)
+
+            fig1.show()
+            fig2.show()
+        except (ValueError, ImportError, RuntimeError):
+            pass
