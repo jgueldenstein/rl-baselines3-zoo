@@ -663,8 +663,9 @@ class ExperimentManager(object):
             )
 
         if self.tensorboard_log is not None:
-            warnings.warn("Tensorboard log is deactivated when running hyperparameter optimization")
-            self.tensorboard_log = None
+            #warnings.warn("Tensorboard log is deactivated when running hyperparameter optimization")
+            #self.tensorboard_log = None
+            pass
 
         # TODO: eval each hyperparams several times to account for noisy evaluation
         sampler = self._create_sampler(self.sampler)

@@ -65,13 +65,12 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     }[net_arch]
 
     activation_fn = {"tanh": nn.Tanh, "relu": nn.ReLU, "elu": nn.ELU, "leaky_relu": nn.LeakyReLU}[activation_fn]
-    distribution_type = {'FixedVarSquashedDiagGaussian': FixedVarSquashedDiagGaussianDistribution,
-                         'FixedVarDiagGaussian': FixedVarDiagGaussianDistribution,
-                         'SquashedDiagGaussian': SquashedDiagGaussianDistribution,
-                         'Beta': Beta}[distribution_type]
+    #distribution_type = {'FixedVarSquashedDiagGaussianDistribution': FixedVarSquashedDiagGaussianDistribution,
+    #                     'FixedVarDiagGaussianDistribution': FixedVarDiagGaussianDistribution,
+    #                     'SquashedDiagGaussianDistribution': SquashedDiagGaussianDistribution,
+    #                     'Beta': Beta}[distribution_type]
 
     return {
-        'normalize': True,
         'set_action_bias_from_env': True,
         'n_steps': n_steps,
         'batch_size': batch_size,
@@ -86,8 +85,7 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
         'use_sde': use_sde,
         # 'sde_sample_freq': sde_sample_freq,
         'policy_kwargs': dict(log_std_init=log_std_init, net_arch=net_arch, activation_fn=activation_fn,
-                              ortho_init=ortho_init, distribution_type=distribution_type),
-        'callback': CmdVelIncreaseCallback
+                              ortho_init=ortho_init, distribution_type=distribution_type)
     }
 
 
