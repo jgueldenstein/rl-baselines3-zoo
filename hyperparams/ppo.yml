@@ -3,19 +3,19 @@ WolfgangBulletEnv-v1:
   n_envs: 8
   n_timesteps: !!float 5e7
   policy: 'MlpPolicy'
-  policy_kwargs: "dict(net_arch=[dict(pi=[512,512], vf=[512,512])], activation_fn=nn.Tanh, log_std_init=-2.13550744827711, distribution_type='FixedVarSquashedDiagGaussian')"
+  policy_kwargs: "dict(net_arch=[dict(pi=[512,512], vf=[512,512])], activation_fn=nn.Tanh, log_std_init=-3.13269042685442, distribution_type='FixedVarSquashedDiagGaussian')"
   set_action_bias_from_env: True
-  n_steps: 512
-  batch_size: 512
-  gae_lambda: 0.92
-  gamma: 0.9
+  n_steps: 256
+  batch_size: 128
+  gae_lambda: 0.8
+  gamma: 0.995
   max_grad_norm: 2
-  n_epochs: 10
+  n_epochs: 20
   ent_coef: 0.0
-  learning_rate: 0.000127405506736703
-  clip_range: 0.2
+  learning_rate: 0.000326407265531289
+  clip_range: 0.1
   use_sde: False
-  vf_coef: 0.587079169607785
+  vf_coef: 0.866259876693717
   callback:
     - deep_quintic.callbacks.RewardLogCallback
     - deep_quintic.callbacks.CmdVelIncreaseCallback
