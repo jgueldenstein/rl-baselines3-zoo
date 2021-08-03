@@ -185,7 +185,7 @@ def main():  # noqa: C901
     newer_python_version = sys.version_info.major == 3 and sys.version_info.minor >= 8
 
     custom_objects = {}
-    if newer_python_version:
+    if newer_python_version or True:
         custom_objects = {
             "learning_rate": 0.0,
             "lr_schedule": lambda _: 0.0,

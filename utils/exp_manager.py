@@ -597,7 +597,7 @@ class ExperimentManager(object):
             env=self.create_envs(self.n_envs, no_log=True),
             tensorboard_log=None,
             # We do not seed the trial
-            seed=None,
+            seed=self.seed, #todo just for testing
             verbose=0,
             **kwargs,
         )
