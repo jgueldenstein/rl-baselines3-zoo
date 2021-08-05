@@ -629,11 +629,18 @@ class ExperimentManager(object):
             # Free memory
             model.env.close()
             eval_env.close()
-        except (AssertionError, ValueError) as e:
+        except (AssertionError, ValueError, EOFError, BrokenPipeError) as e:
             # Sometimes, random hyperparams can generate NaN
             # Free memory
-            model.env.close()
-            eval_env.close()
+            # if using subprocvecenv, the following calls can produce errors themselves
+            try:
+                model.env.close()
+            except:
+                pass
+            try:
+                eval_env.close()
+            except:
+                pass
             # Prune hyperparams that generate NaNs
             print(e)
             print("============")
