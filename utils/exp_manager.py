@@ -624,7 +624,8 @@ class ExperimentManager(object):
         )
 
         try:
-            model.learn(self.n_timesteps, callback=eval_callback)
+            self.callbacks.append(eval_callback)
+            model.learn(self.n_timesteps, callback=self.callbacks)
             # Free memory
             model.env.close()
             eval_env.close()
