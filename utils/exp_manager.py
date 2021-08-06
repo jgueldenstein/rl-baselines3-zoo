@@ -35,7 +35,7 @@ import utils.import_envs  # noqa: F401 pytype: disable=import-error
 from utils.callbacks import SaveVecNormalizeCallback, TrialEvalCallback
 from utils.hyperparams_opt import HYPERPARAMS_SAMPLER
 from utils.utils import ALGOS, get_callback_list, get_latest_run_id, get_wrapper_class, linear_schedule
-
+import traceback
 
 class ExperimentManager(object):
     """
@@ -597,7 +597,7 @@ class ExperimentManager(object):
             env=self.create_envs(self.n_envs, no_log=True),
             tensorboard_log=None,
             # We do not seed the trial
-            seed=self.seed, #todo just for testing
+            seed=None,
             verbose=0,
             **kwargs,
         )
@@ -633,6 +633,7 @@ class ExperimentManager(object):
             # Sometimes, random hyperparams can generate NaN
             # Free memory
             # if using subprocvecenv, the following calls can produce errors themselves
+            traceback.print_exc()
             try:
                 model.env.close()
             except:
@@ -646,6 +647,7 @@ class ExperimentManager(object):
             print("============")
             print("Sampled hyperparams:")
             pprint(sampled_hyperparams)
+            return 0
             raise optuna.exceptions.TrialPruned()
         is_pruned = eval_callback.is_pruned
         reward = eval_callback.last_mean_reward
