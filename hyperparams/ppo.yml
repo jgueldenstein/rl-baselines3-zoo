@@ -18,7 +18,6 @@ WolfgangBulletEnv-v1:
   vf_coef: 0.210933418438296
   callback:
     - deep_quintic.callbacks.RewardLogCallback
-    - deep_quintic.callbacks.CmdVelIncreaseCallback
 
 
 
