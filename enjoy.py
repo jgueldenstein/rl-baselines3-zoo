@@ -140,20 +140,6 @@ def main():  # noqa: C901
     env_kwargs = {}
     args_path = os.path.join(log_path, env_id, "args.yml")
     if os.path.isfile(args_path):
-        with open(args_path, 'r') as f:
-            loaded_args = yaml.load(f, Loader=yaml.UnsafeLoader)  # pytype: disable=module-attr
-            if loaded_args['env_kwargs'] is not None:
-                env_kwargs = loaded_args['env_kwargs']
-    # overwrite with command line arguments
-    if args.env_kwargs is not None:
-        env_kwargs.update(args.env_kwargs)
-
-    log_dir = args.reward_log if args.reward_log != '' else None
-
-    # load env_kwargs if existing
-    env_kwargs = {}
-    args_path = os.path.join(log_path, env_id, "args.yml")
-    if os.path.isfile(args_path):
         with open(args_path, "r") as f:
             loaded_args = yaml.load(f, Loader=yaml.UnsafeLoader)  # pytype: disable=module-attr
             if loaded_args["env_kwargs"] is not None:
