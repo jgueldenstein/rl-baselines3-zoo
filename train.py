@@ -78,9 +78,10 @@ if __name__ == "__main__":  # noqa: C901
         help="Pruner to use when optimizing hyperparameters",
         type=str,
         default="median",
-        choices=["halving", "median", "none", "zero"],
+        choices=["halving", "median", "none", "threshold"],
     )
     parser.add_argument("--n-startup-trials", help="Number of trials before using optuna sampler", type=int, default=10)
+    parser.add_argument("--pruner-threshold", help="The threshold of the pruner when specifying --pruner threhold", type=int, default=10)
     parser.add_argument(
         "--n-evaluations",
         help="Training policies are evaluated every n-timesteps // n-evaluations steps when doing hyperparameter optimization",
@@ -172,6 +173,7 @@ if __name__ == "__main__":  # noqa: C901
         args.pruner,
         args.optimization_log_path,
         n_startup_trials=args.n_startup_trials,
+        pruner_threshold=args.pruner_threshold,
         n_evaluations=args.n_evaluations,
         truncate_last_trajectory=args.truncate_last_trajectory,
         uuid_str=uuid_str,

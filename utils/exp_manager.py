@@ -69,6 +69,7 @@ class ExperimentManager(object):
         pruner: str = "median",
         optimization_log_path: Optional[str] = None,
         n_startup_trials: int = 0,
+        pruner_threshold: float = 0,
         n_evaluations: int = 1,
         truncate_last_trajectory: bool = False,
         uuid_str: str = "",
@@ -127,6 +128,7 @@ class ExperimentManager(object):
         self.sampler = sampler
         self.pruner = pruner
         self.n_startup_trials = n_startup_trials
+        self.pruner_threshold = pruner_threshold
         self.n_evaluations = n_evaluations
         self.deterministic_eval = not self.is_atari(self.env_id)
 
@@ -576,8 +578,8 @@ class ExperimentManager(object):
         elif pruner_method == "none":
             # Do not prune
             pruner = MedianPruner(n_startup_trials=self.n_trials, n_warmup_steps=self.n_evaluations)
-        elif pruner_method == "zero":
-            pruner = ThresholdPruner(lower=1)
+        elif pruner_method == "threshold":
+            pruner = ThresholdPruner(lower=self.pruner_threshold)
         else:
             raise ValueError(f"Unknown pruner: {pruner_method}")
         return pruner
