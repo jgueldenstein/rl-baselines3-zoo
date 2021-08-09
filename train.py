@@ -78,7 +78,7 @@ if __name__ == "__main__":  # noqa: C901
         help="Pruner to use when optimizing hyperparameters",
         type=str,
         default="median",
-        choices=["halving", "median", "none"],
+        choices=["halving", "median", "none", "zero"],
     )
     parser.add_argument("--n-startup-trials", help="Number of trials before using optuna sampler", type=int, default=10)
     parser.add_argument(

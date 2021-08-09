@@ -12,7 +12,7 @@ import numpy as np
 import optuna
 import yaml
 from optuna.integration.skopt import SkoptSampler
-from optuna.pruners import BasePruner, MedianPruner, SuccessiveHalvingPruner
+from optuna.pruners import BasePruner, MedianPruner, SuccessiveHalvingPruner, ThresholdPruner
 from optuna.samplers import BaseSampler, RandomSampler, TPESampler
 from optuna.visualization import plot_optimization_history, plot_param_importances
 
@@ -576,6 +576,8 @@ class ExperimentManager(object):
         elif pruner_method == "none":
             # Do not prune
             pruner = MedianPruner(n_startup_trials=self.n_trials, n_warmup_steps=self.n_evaluations)
+        elif pruner_method == "zero":
+            pruner = ThresholdPruner(lower=1)
         else:
             raise ValueError(f"Unknown pruner: {pruner_method}")
         return pruner
