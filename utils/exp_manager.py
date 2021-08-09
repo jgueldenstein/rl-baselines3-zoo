@@ -36,6 +36,7 @@ from utils.callbacks import SaveVecNormalizeCallback, TrialEvalCallback
 from utils.hyperparams_opt import HYPERPARAMS_SAMPLER
 from utils.utils import ALGOS, get_callback_list, get_latest_run_id, get_wrapper_class, linear_schedule
 import traceback
+from copy import deepcopy
 
 class ExperimentManager(object):
     """
@@ -624,7 +625,7 @@ class ExperimentManager(object):
         )
 
         try:
-            model.learn(self.n_timesteps, callback=[*self.callbacks, eval_callback])
+            model.learn(self.n_timesteps, callback=[*deepcopy(self.callbacks), eval_callback])
             # Free memory
             model.env.close()
             eval_env.close()
