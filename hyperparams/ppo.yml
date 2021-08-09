@@ -20,7 +20,6 @@ WolfgangBulletEnv-v1:
     - deep_quintic.callbacks.RewardLogCallback
 
 
-
 WolfgangBulletEnv-v1-opt:
   normalize: true
   n_envs: 16

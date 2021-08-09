@@ -24,7 +24,7 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     #n_steps = 256
     gamma = trial.suggest_categorical("gamma", [0.9, 0.95, 0.98, 0.99, 0.995, 0.999, 0.9999])
     #gamma = 0.98
-    learning_rate = trial.suggest_loguniform("learning_rate", 1e-5, 1)
+    learning_rate = trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     #learning_rate = 0.000107739192714429
     lr_schedule = "constant"
     # Uncomment to enable learning rate schedule
