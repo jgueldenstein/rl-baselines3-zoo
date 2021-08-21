@@ -15,7 +15,7 @@ WolfgangBulletEnv-v1:
   learning_rate: 8.28389363843218e-05
   clip_range: 0.3
   use_sde: False
-  vf_coef: 0.517262062470215
+  vf_coef: 0.5
   callback:
     - deep_quintic.callbacks.RewardLogCallback
 
