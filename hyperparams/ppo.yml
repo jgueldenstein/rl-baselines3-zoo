@@ -3,6 +3,28 @@ WolfgangBulletEnv-v1:
   n_envs: 8
   n_timesteps: !!float 5e7
   policy: 'MlpPolicy'
+  policy_kwargs: "dict(net_arch=[dict(pi=[64,64], vf=[64,64])], activation_fn=nn.Tanh, log_std_init=-3.19222846605954, distribution_type='FixedVarSquashedDiagGaussian')"
+  set_action_bias_from_env: True
+  n_steps: 1024
+  batch_size: 64
+  gae_lambda: 0.92
+  gamma: 0.95
+  n_epochs: 20
+  max_grad_norm: 0.3
+  ent_coef: 0.0
+  learning_rate: 4.39421961062805e-05
+  clip_range: 0.3
+  use_sde: False
+  vf_coef: 0.5
+  callback:
+    - deep_quintic.callbacks.RewardLogCallback
+
+
+WolfgangBulletEnv-v1_cartesian_CAV36_148:
+  normalize: true
+  n_envs: 8
+  n_timesteps: !!float 5e7
+  policy: 'MlpPolicy'
   policy_kwargs: "dict(net_arch=[dict(pi=[64,64], vf=[64,64])], activation_fn=nn.Tanh, log_std_init=-2.92674985544197, distribution_type='FixedVarSquashedDiagGaussian')"
   set_action_bias_from_env: True
   n_steps: 1024
@@ -18,6 +40,7 @@ WolfgangBulletEnv-v1:
   vf_coef: 0.5
   callback:
     - deep_quintic.callbacks.RewardLogCallback
+
 
 WolfgangBulletEnv-v1-opt:
   normalize: true
