@@ -41,7 +41,7 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     #max_grad_norm = 0.5
     #vf_coef = trial.suggest_uniform("vf_coef", 0, 1)
     vf_coef = 0.5
-    net_arch = trial.suggest_categorical("net_arch", ["small", "medium", "large", "huge"])
+    net_arch = trial.suggest_categorical("net_arch", ["small", "medium", "large", "huge", "small3", "medium3", "large3", "huge3"])
     #net_arch = "large"
     use_sde = False
     # Uncomment for gSDE (continuous action)
@@ -52,13 +52,17 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     # activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu', 'elu', 'leaky_relu'])
     activation_fn = 'tanh'
     # activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
-    log_std_init = trial.suggest_uniform("log_std_init", -4, 0)
-    #log_std_init = -3
+
 
     distribution_type = 'FixedVarSquashedDiagGaussian'
     # distribution_type = trial.suggest_categorical('distribution_type',
     #                                              ['FixedVarSquashedDiagGaussian', 'FixedVarDiagGaussian',
     #                                               'SquashedDiagGaussian', 'Beta'])
+    log_std_init = None
+    if distribution_type in ['FixedVarSquashedDiagGaussian', 'FixedVarDiagGaussian', 'SquashedDiagGaussian']:
+        # only need this if we use some form of gaussian distribution
+        log_std_init = trial.suggest_uniform("log_std_init", -4, 0)
+        # log_std_init = -3
 
     if batch_size > n_steps * n_envs:
         batch_size = n_steps
@@ -72,7 +76,11 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
         'small': [dict(pi=[64, 64], vf=[64, 64])],
         'medium': [dict(pi=[256, 256], vf=[256, 256])],
         'large': [dict(pi=[512, 512], vf=[512, 512])],
-        'huge': [dict(pi=[1024, 1024], vf=[1024, 1024])]
+        'huge': [dict(pi=[1024, 1024], vf=[1024, 1024])],
+        'small3': [dict(pi=[64, 64], vf=[64, 64])],
+        'medium3': [dict(pi=[256, 256], vf=[256, 256])],
+        'large3': [dict(pi=[512, 512], vf=[512, 512])],
+        'huge3': [dict(pi=[1024, 1024], vf=[1024, 1024])]
     }[net_arch]
 
     activation_fn = {"tanh": nn.Tanh, "relu": nn.ReLU, "elu": nn.ELU, "leaky_relu": nn.LeakyReLU}[activation_fn]

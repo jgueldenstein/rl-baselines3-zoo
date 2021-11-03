@@ -1,4 +1,4 @@
-WolfgangBulletEnv-v1:
+WolfgangBulletEnv-v1_J:
   normalize: true
   n_envs: 8
   n_timesteps: !!float 5e7
@@ -20,13 +20,14 @@ WolfgangBulletEnv-v1:
     - deep_quintic.callbacks.RewardLogCallback
 
 
-WolfgangBulletEnv-v1_cartesian_CAV36_148:
+WolfgangBulletEnv-v1:
   normalize: true
   n_envs: 8
   n_timesteps: !!float 5e7
   policy: 'MlpPolicy'
   policy_kwargs: "dict(net_arch=[dict(pi=[64,64], vf=[64,64])], activation_fn=nn.Tanh, log_std_init=-2.92674985544197, distribution_type='FixedVarSquashedDiagGaussian')"
   set_action_bias_from_env: True
+  beta_init: 16
   n_steps: 1024
   batch_size: 64
   gae_lambda: 0.9
