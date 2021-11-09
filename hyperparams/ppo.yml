@@ -1,4 +1,4 @@
-WolfgangBulletEnv-v1_J:
+WolfgangWalkEnv-v1_J:
   normalize: true
   n_envs: 8
   n_timesteps: !!float 5e7
@@ -20,7 +20,7 @@ WolfgangBulletEnv-v1_J:
     - deep_quintic.callbacks.RewardLogCallback
 
 
-WolfgangBulletEnv-v1:
+WolfgangWalkEnv-v1:
   normalize: true
   n_envs: 8
   n_timesteps: !!float 5e7
