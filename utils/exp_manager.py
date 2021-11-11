@@ -169,7 +169,14 @@ class ExperimentManager(object):
         self.create_callbacks()
 
         # Create env to have access to action space for action noise
-        env = self.create_envs(self.n_envs, no_log=False)
+        try:
+            env = self.create_envs(self.n_envs, no_log=False)
+        except Exception as e:
+            print(e)
+            # remove not used log dir, otherwise log id and tensorboard id will diverge
+            os.rmdir(self.params_path)
+            os.rmdir(self.save_path)
+            exit(1)
 
         self._hyperparams = self._preprocess_action_noise(hyperparams, saved_hyperparams, env)
 
