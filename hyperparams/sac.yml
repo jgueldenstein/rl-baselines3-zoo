@@ -1,4 +1,4 @@
-WolfgangEnv-v1:
+WolfgangWalkEnv-v1:
   n_timesteps: !!float 3e7
   policy: 'MlpPolicy'
   learning_rate: lin_7.3e-4
