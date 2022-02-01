@@ -64,6 +64,11 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
         log_std_init = trial.suggest_uniform("log_std_init", -4, 0)
         # log_std_init = -3
 
+    if distribution_type == 'Beta':
+        beta_init = trial.suggest_uniform("beta_init", 0, 20)
+    else:
+        beta_init = 16
+
     if batch_size > n_steps * n_envs:
         batch_size = n_steps
 
@@ -102,13 +107,14 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
         'max_grad_norm': max_grad_norm,
         'vf_coef': vf_coef,
         'use_sde': use_sde,
+        'beta_init': beta_init,
         # 'sde_sample_freq': sde_sample_freq,
         'policy_kwargs': dict(log_std_init=log_std_init, net_arch=net_arch, activation_fn=activation_fn,
                               ortho_init=ortho_init, distribution_type=distribution_type)
     }
 
 
-def sample_a2c_params(trial: optuna.Trial) -> Dict[str, Any]:
+def sample_a2c_params(trial: optuna.Trial, n_envs=0) -> Dict[str, Any]:
     """
     Sampler for A2C hyperparams.
 
@@ -172,7 +178,7 @@ def sample_a2c_params(trial: optuna.Trial) -> Dict[str, Any]:
     }
 
 
-def sample_sac_params(trial: optuna.Trial) -> Dict[str, Any]:
+def sample_sac_params(trial: optuna.Trial, n_envs=0) -> Dict[str, Any]:
     """
     Sampler for SAC hyperparams.
 
@@ -233,7 +239,7 @@ def sample_sac_params(trial: optuna.Trial) -> Dict[str, Any]:
     return hyperparams
 
 
-def sample_td3_params(trial: optuna.Trial) -> Dict[str, Any]:
+def sample_td3_params(trial: optuna.Trial, n_envs=0) -> Dict[str, Any]:
     """
     Sampler for TD3 hyperparams.
 
@@ -291,7 +297,7 @@ def sample_td3_params(trial: optuna.Trial) -> Dict[str, Any]:
     return hyperparams
 
 
-def sample_ddpg_params(trial: optuna.Trial) -> Dict[str, Any]:
+def sample_ddpg_params(trial: optuna.Trial, n_envs=0) -> Dict[str, Any]:
     """
     Sampler for DDPG hyperparams.
 
@@ -347,7 +353,7 @@ def sample_ddpg_params(trial: optuna.Trial) -> Dict[str, Any]:
     return hyperparams
 
 
-def sample_dqn_params(trial: optuna.Trial) -> Dict[str, Any]:
+def sample_dqn_params(trial: optuna.Trial, n_envs=0) -> Dict[str, Any]:
     """
     Sampler for DQN hyperparams.
 
