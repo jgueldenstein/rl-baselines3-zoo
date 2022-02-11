@@ -118,6 +118,8 @@ if __name__ == "__main__":  # noqa: C901
         help="Overwrite hyperparameter (e.g. learning_rate:0.01 train_freq:10)",
     )
     parser.add_argument("-uuid", "--uuid", action="store_true", default=False, help="Ensure that the run has a unique ID")
+    parser.add_argument("-wandb", "--wandb", action="store_true", default=False,
+                        help="Enable wandb logging")
     args = parser.parse_args()
 
     # Going through custom gym packages to let them register in the global registory
@@ -178,6 +180,7 @@ if __name__ == "__main__":  # noqa: C901
         args.sampler,
         args.pruner,
         args.optimization_log_path,
+        args.wandb,
         n_startup_trials=args.n_startup_trials,
         pruner_threshold=args.pruner_threshold,
         n_evaluations=args.n_evaluations,

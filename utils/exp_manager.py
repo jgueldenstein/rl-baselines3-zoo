@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 import gym
 import numpy as np
 import optuna
+import wandb
 import yaml
 from optuna.integration.skopt import SkoptSampler
 from optuna.pruners import BasePruner, MedianPruner, SuccessiveHalvingPruner, ThresholdPruner
@@ -17,6 +18,8 @@ from optuna.samplers import BaseSampler, RandomSampler, TPESampler
 from optuna.visualization import plot_optimization_history, plot_param_importances
 
 # For using HER with GoalEnv
+from wandb.integration.sb3 import WandbCallback
+
 from stable_baselines3 import HerReplayBuffer  # noqa: F401
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common.callbacks import BaseCallback, CheckpointCallback, EvalCallback
@@ -32,7 +35,7 @@ from stable_baselines3.common.vec_env import (
     VecFrameStack,
     VecNormalize,
     VecTransposeImage,
-    is_vecenv_wrapped,
+    is_vecenv_wrapped, VecVideoRecorder,
 )
 
 # For custom activation fn
@@ -76,6 +79,7 @@ class ExperimentManager(object):
         sampler: str = "tpe",
         pruner: str = "median",
         optimization_log_path: Optional[str] = None,
+        wandb_logging: bool = False,
         n_startup_trials: int = 0,
         pruner_threshold: float = 0,
         n_evaluations: int = 1,
@@ -154,6 +158,8 @@ class ExperimentManager(object):
             self.log_path, f"{self.env_id}_{get_latest_run_id(self.log_path, self.env_id) + 1}{uuid_str}"
         )
         self.params_path = f"{self.save_path}/{self.env_id}"
+        self.wandb_logging = wandb_logging
+        self.wandb_run = None
 
     def setup_experiment(self) -> Optional[BaseAlgorithm]:
         """
@@ -166,7 +172,7 @@ class ExperimentManager(object):
         hyperparams, self.env_wrapper, self.callbacks = self._preprocess_hyperparams(hyperparams)
 
         self.create_log_folder()
-        self.create_callbacks()
+        self.create_callbacks(hyperparams)
 
         # Create env to have access to action space for action noise
         try:
@@ -406,7 +412,7 @@ class ExperimentManager(object):
     def create_log_folder(self):
         os.makedirs(self.params_path, exist_ok=True)
 
-    def create_callbacks(self):
+    def create_callbacks(self, hyperparams):
 
         if self.save_freq > 0:
             # Account for the number of parallel environments
@@ -440,6 +446,29 @@ class ExperimentManager(object):
             )
 
             self.callbacks.append(eval_callback)
+
+        if self.wandb_logging:
+            # Create wandb callback
+            config = {
+                "env_name": self.env_id,
+            }
+            config.update(hyperparams)
+            config.update(hyperparams["policy_kwargs"])
+            config.update(self.env_kwargs)
+            config.pop("policy_kwargs")
+            self.wandb_run = wandb.init(
+                project="sb3",
+                config=config,
+                sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+                monitor_gym=True,  # auto-upload the videos of agents playing the game
+                save_code=False,  # optional
+            )
+            self.callbacks.append(WandbCallback(
+                gradient_save_freq=100,
+                model_save_path=f"models/{self.wandb_run.id}",
+                verbose=2,
+            ))
+
 
     @staticmethod
     def is_atari(env_id: str) -> bool:
@@ -557,6 +586,9 @@ class ExperimentManager(object):
                 if self.verbose >= 1:
                     print("Wrapping the env in a VecTransposeImage.")
                 env = VecTransposeImage(env)
+
+        if self.wandb_logging:
+            env = VecVideoRecorder(env, f"videos/{self.wandb_run.id}", record_video_trigger=lambda x: x % 100000 == 0, video_length=200)
 
         return env
 
