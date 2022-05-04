@@ -8,7 +8,7 @@ import gym
 import stable_baselines3 as sb3  # noqa: F401
 import torch as th  # noqa: F401
 import yaml
-from sb3_contrib import QRDQN, TQC
+from sb3_contrib import ARS, QRDQN, TQC, TRPO
 from stable_baselines3 import A2C, DDPG, DQN, PPO, SAC, TD3
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.env_util import make_vec_env
@@ -26,8 +26,10 @@ ALGOS = {
     "sac": SAC,
     "td3": TD3,
     # SB3 Contrib,
+    "ars": ARS,
     "qrdqn": QRDQN,
     "tqc": TQC,
+    "trpo": TRPO,
 }
 
 
@@ -316,7 +318,7 @@ def get_saved_hyperparams(
         config_file = os.path.join(stats_path, "config.yml")
         if os.path.isfile(config_file):
             # Load saved hyperparameters
-            with open(os.path.join(stats_path, "config.yml"), "r") as f:
+            with open(os.path.join(stats_path, "config.yml")) as f:
                 hyperparams = yaml.load(f, Loader=yaml.UnsafeLoader)  # pytype: disable=module-attr
             hyperparams["normalize"] = hyperparams.get("normalize", False)
         else:
@@ -345,7 +347,7 @@ class StoreDict(argparse.Action):
 
     def __init__(self, option_strings, dest, nargs=None, **kwargs):
         self._nargs = nargs
-        super(StoreDict, self).__init__(option_strings, dest, nargs=nargs, **kwargs)
+        super().__init__(option_strings, dest, nargs=nargs, **kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
         arg_dict = {}

@@ -5,17 +5,19 @@ import time
 import warnings
 from collections import OrderedDict
 from pprint import pprint
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import gym
 import numpy as np
 import optuna
 import wandb
+import torch as th
 import yaml
 from optuna.integration.skopt import SkoptSampler
-from optuna.pruners import BasePruner, MedianPruner, SuccessiveHalvingPruner, ThresholdPruner
+from optuna.pruners import BasePruner, MedianPruner, NopPruner, SuccessiveHalvingPruner, ThresholdPruner
 from optuna.samplers import BaseSampler, RandomSampler, TPESampler
 from optuna.visualization import plot_optimization_history, plot_param_importances
+from sb3_contrib.common.vec_env import AsyncEval
 
 # For using HER with GoalEnv
 from wandb.integration.sb3 import WandbCallback
@@ -49,7 +51,7 @@ from utils.utils import ALGOS, get_callback_list, get_latest_run_id, get_wrapper
 import traceback
 from copy import deepcopy
 
-class ExperimentManager(object):
+class ExperimentManager:
     """
     Experiment manager: read the hyperparameters,
     preprocess them, create the environment and the RL model.
@@ -92,8 +94,9 @@ class ExperimentManager(object):
         vec_env_type: str = "dummy",
         n_eval_envs: int = 1,
         no_optim_plots: bool = False,
+        device: Union[th.device, str] = "auto",
     ):
-        super(ExperimentManager, self).__init__()
+        super().__init__()
         self.algo = algo
         self.env_id = env_id
         # Custom params
@@ -144,6 +147,7 @@ class ExperimentManager(object):
         self.pruner_threshold = pruner_threshold
         self.n_evaluations = n_evaluations
         self.deterministic_eval = not self.is_atari(self.env_id)
+        self.device = device
 
         # Logging
         self.log_folder = log_folder
@@ -161,7 +165,7 @@ class ExperimentManager(object):
         self.wandb_logging = wandb_logging
         self.wandb_run = None
 
-    def setup_experiment(self) -> Optional[BaseAlgorithm]:
+    def setup_experiment(self) -> Optional[Tuple[BaseAlgorithm, Dict[str, Any]]]:
         """
         Read hyperparameters, pre-process them (create schedules, wrappers, callbacks, action noise objects)
         create the environment and possibly the model.
@@ -176,7 +180,8 @@ class ExperimentManager(object):
 
         # Create env to have access to action space for action noise
         try:
-            env = self.create_envs(self.n_envs, no_log=False)
+            n_envs = 1 if self.algo == "ars" else self.n_envs
+            env = self.create_envs(n_envs, no_log=False)
         except Exception as e:
             print(e)
             # remove not used log dir, otherwise log id and tensorboard id will diverge
@@ -197,11 +202,12 @@ class ExperimentManager(object):
                 tensorboard_log=self.tensorboard_log,
                 seed=self.seed,
                 verbose=self.verbose,
+                device=self.device,
                 **self._hyperparams,
             )
 
         self._save_config(saved_hyperparams)
-        return model
+        return model, saved_hyperparams
 
     def learn(self, model: BaseAlgorithm) -> None:
         """
@@ -213,6 +219,12 @@ class ExperimentManager(object):
 
         if len(self.callbacks) > 0:
             kwargs["callback"] = self.callbacks
+
+        # Special case for ARS
+        if self.algo == "ars" and self.n_envs > 1:
+            kwargs["async_eval"] = AsyncEval(
+                [lambda: self.create_envs(n_envs=1, no_log=True) for _ in range(self.n_envs)], model.policy
+            )
 
         try:
             model.learn(self.n_timesteps, **kwargs)
@@ -264,7 +276,7 @@ class ExperimentManager(object):
 
     def read_hyperparameters(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # Load hyperparameters from yaml file
-        with open(f"hyperparams/{self.algo}.yml", "r") as f:
+        with open(f"hyperparams/{self.algo}.yml") as f:
             hyperparams_dict = yaml.safe_load(f)
             if self.env_id in list(hyperparams_dict.keys()):
                 hyperparams = hyperparams_dict[self.env_id]
@@ -288,7 +300,7 @@ class ExperimentManager(object):
     @staticmethod
     def _preprocess_schedules(hyperparams: Dict[str, Any]) -> Dict[str, Any]:
         # Create schedules
-        for key in ["learning_rate", "clip_range", "clip_range_vf"]:
+        for key in ["learning_rate", "clip_range", "clip_range_vf", "delta_std"]:
             if key not in hyperparams:
                 continue
             if isinstance(hyperparams[key], str):
@@ -345,6 +357,14 @@ class ExperimentManager(object):
                 print(f"Overwriting n_timesteps with n={self.n_timesteps}")
         else:
             self.n_timesteps = int(hyperparams["n_timesteps"])
+
+        # Derive n_evaluations from number of timesteps if needed
+        if self.n_evaluations is None and self.optimize_hyperparameters:
+            self.n_evaluations = max(1, self.n_timesteps // int(1e5))
+            print(
+                f"Doing {self.n_evaluations} intermediate evaluations for pruning based on the number of timesteps."
+                " (1 evaluation every 100k timesteps)"
+            )
 
         # Pre-process normalize config
         hyperparams = self._preprocess_normalization(hyperparams)
@@ -609,6 +629,7 @@ class ExperimentManager(object):
             seed=self.seed,
             tensorboard_log=self.tensorboard_log,
             verbose=self.verbose,
+            device=self.device,
             **hyperparams,
         )
 
@@ -625,7 +646,6 @@ class ExperimentManager(object):
         if sampler_method == "random":
             sampler = RandomSampler(seed=self.seed)
         elif sampler_method == "tpe":
-            # TODO: try with multivariate=True
             sampler = TPESampler(n_startup_trials=self.n_startup_trials, seed=self.seed, constant_liar=True, multivariate=True)
         elif sampler_method == "skopt":
             # cf https://scikit-optimize.github.io/#skopt.Optimizer
@@ -643,7 +663,7 @@ class ExperimentManager(object):
             pruner = MedianPruner(n_startup_trials=self.n_startup_trials, n_warmup_steps=self.n_evaluations // 3)
         elif pruner_method == "none":
             # Do not prune
-            pruner = MedianPruner(n_startup_trials=self.n_trials, n_warmup_steps=self.n_evaluations)
+            pruner = NopPruner()
         elif pruner_method == "threshold":
             pruner = ThresholdPruner(lower=self.pruner_threshold)
         else:
@@ -664,22 +684,32 @@ class ExperimentManager(object):
         sampled_hyperparams = HYPERPARAMS_SAMPLER[self.algo](trial, self.n_envs)
         kwargs.update(sampled_hyperparams)
 
+        n_envs = 1 if self.algo == "ars" else self.n_envs
+        env = self.create_envs(n_envs, no_log=True)
+
+        # By default, do not activate verbose output to keep
+        # stdout clean with only the trials results
+        trial_verbosity = 0
+        # Activate verbose mode for the trial in debug mode
+        # See PR #214
+        if self.verbose >= 2:
+            trial_verbosity = self.verbose
+
         model = ALGOS[self.algo](
-            env=self.create_envs(self.n_envs, no_log=True),
+            env=env,
             tensorboard_log=None,
             # We do not seed the trial
             seed=None,
-            verbose=0,
+            verbose=trial_verbosity,
+            device=self.device,
             **kwargs,
         )
-
-        model.trial = trial
 
         eval_env = self.create_envs(n_envs=self.n_eval_envs, eval_env=True)
 
         optuna_eval_freq = int(self.n_timesteps / self.n_evaluations)
         # Account for parallel envs
-        optuna_eval_freq = max(optuna_eval_freq // model.get_env().num_envs, 1)
+        optuna_eval_freq = max(optuna_eval_freq // self.n_envs, 1)
         # Use non-deterministic eval for Atari
         path = None
         if self.optimization_log_path is not None:
@@ -696,8 +726,15 @@ class ExperimentManager(object):
         )
         callbacks.append(eval_callback)
 
+        learn_kwargs = {}
+        # Special case for ARS
+        if self.algo == "ars" and self.n_envs > 1:
+            learn_kwargs["async_eval"] = AsyncEval(
+                [lambda: self.create_envs(n_envs=1, no_log=True) for _ in range(self.n_envs)], model.policy
+            )
+
         try:
-            model.learn(self.n_timesteps, callback=callbacks)
+            model.learn(self.n_timesteps, callback=callbacks, **learn_kwargs)
             # Free memory
             model.env.close()
             eval_env.close()
