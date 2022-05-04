@@ -464,8 +464,9 @@ class ExperimentManager(object):
                 save_code=False,  # optional
             )
             self.callbacks.append(WandbCallback(
-                gradient_save_freq=100,
+                gradient_save_freq=0,
                 model_save_path=f"models/{self.wandb_run.id}",
+                model_save_freq=1000000,
                 verbose=2,
             ))
 
