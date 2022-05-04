@@ -433,7 +433,30 @@ class ExperimentManager:
         os.makedirs(self.params_path, exist_ok=True)
 
     def create_callbacks(self, hyperparams):
-
+        if self.wandb_logging:
+            # Create wandb callback
+            config = {
+                "env_name": self.env_id,
+            }
+            config.update(hyperparams)
+            config.update(hyperparams["policy_kwargs"])
+            config.update(self.env_kwargs)
+            config.pop("policy_kwargs")
+            sync_tensorboard = self.tensorboard_log != ""
+            self.wandb_run = wandb.init(
+                project="sb3",
+                config=config,
+                sync_tensorboard=sync_tensorboard,  # auto-upload sb3's tensorboard metrics
+                monitor_gym=True,  # auto-upload the videos of agents playing the game
+                save_code=False,  # optional
+            )
+            self.callbacks.append(WandbCallback(
+                gradient_save_freq=0,
+                model_save_path=f"models/{self.wandb_run.id}",
+                model_save_freq=1000000,
+                verbose=2,
+            ))
+        
         if self.save_freq > 0:
             # Account for the number of parallel environments
             self.save_freq = max(self.save_freq // self.n_envs, 1)
@@ -466,30 +489,6 @@ class ExperimentManager:
             )
 
             self.callbacks.append(eval_callback)
-
-        if self.wandb_logging:
-            # Create wandb callback
-            config = {
-                "env_name": self.env_id,
-            }
-            config.update(hyperparams)
-            config.update(hyperparams["policy_kwargs"])
-            config.update(self.env_kwargs)
-            config.pop("policy_kwargs")
-            sync_tensorboard = self.tensorboard_log != ""
-            self.wandb_run = wandb.init(
-                project="sb3",
-                config=config,
-                sync_tensorboard=sync_tensorboard,  # auto-upload sb3's tensorboard metrics
-                monitor_gym=True,  # auto-upload the videos of agents playing the game
-                save_code=False,  # optional
-            )
-            self.callbacks.append(WandbCallback(
-                gradient_save_freq=0,
-                model_save_path=f"models/{self.wandb_run.id}",
-                model_save_freq=1000000,
-                verbose=2,
-            ))
 
 
     @staticmethod
