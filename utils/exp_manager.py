@@ -456,10 +456,11 @@ class ExperimentManager(object):
             config.update(hyperparams["policy_kwargs"])
             config.update(self.env_kwargs)
             config.pop("policy_kwargs")
+            sync_tensorboard = self.tensorboard_log != ""
             self.wandb_run = wandb.init(
                 project="sb3",
                 config=config,
-                sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+                sync_tensorboard=sync_tensorboard,  # auto-upload sb3's tensorboard metrics
                 monitor_gym=True,  # auto-upload the videos of agents playing the game
                 save_code=False,  # optional
             )
