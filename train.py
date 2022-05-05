@@ -124,6 +124,13 @@ if __name__ == "__main__":  # noqa: C901
     parser.add_argument("-wandb", "--wandb", action="store_true", default=False,
                         help="Enable wandb logging")
     parser.add_argument(
+        "--video-log-freq",
+        help="Render videos of the agent's performance every n timesteps. "
+             "Not providing this arguments disables video logging.",
+        default=None,
+        type=int,
+    )
+    parser.add_argument(
         "--track",
         action="store_true",
         default=False,
@@ -212,6 +219,7 @@ if __name__ == "__main__":  # noqa: C901
         args.pruner,
         args.optimization_log_path,
         args.wandb,
+        video_log_freq=args.video_log_freq,
         n_startup_trials=args.n_startup_trials,
         pruner_threshold=args.pruner_threshold,
         n_evaluations=args.n_evaluations,

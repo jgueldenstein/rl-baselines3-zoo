@@ -82,6 +82,7 @@ class ExperimentManager:
         pruner: str = "median",
         optimization_log_path: Optional[str] = None,
         wandb_logging: bool = False,
+        video_log_freq: Optional[int] = None,
         n_startup_trials: int = 0,
         pruner_threshold: float = 0,
         n_evaluations: int = 1,
@@ -164,6 +165,7 @@ class ExperimentManager:
         self.params_path = f"{self.save_path}/{self.env_id}"
         self.wandb_logging = wandb_logging
         self.wandb_run = None
+        self.video_log_freq = video_log_freq
 
     def setup_experiment(self) -> Optional[Tuple[BaseAlgorithm, Dict[str, Any]]]:
         """
@@ -608,8 +610,8 @@ class ExperimentManager:
                     print("Wrapping the env in a VecTransposeImage.")
                 env = VecTransposeImage(env)
 
-        if self.wandb_logging:
-            env = VecVideoRecorder(env, f"videos/{self.wandb_run.id}", record_video_trigger=lambda x: x % 100000 == 0, video_length=200)
+        if self.video_log_freq is not None:
+            env = VecVideoRecorder(env, f"videos/{self.wandb_run.id}", record_video_trigger=lambda x: x % self.video_log_freq == 0, video_length=300)
 
         return env
 
