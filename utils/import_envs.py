@@ -1,4 +1,8 @@
 try:
+    import deep_footsteps
+except ImportError:
+    deep_footsteps = None
+try:
     import pybullet_envs  # pytype: disable=import-error
 except ImportError:
     pybullet_envs = None
