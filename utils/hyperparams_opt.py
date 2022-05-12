@@ -7,7 +7,6 @@ from stable_baselines3.common.distributions import SquashedDiagGaussianDistribut
     FixedVarSquashedDiagGaussianDistribution, FixedVarDiagGaussianDistribution, Beta
 from torch import nn as nn
 
-from deep_quintic.callbacks import CmdVelIncreaseCallback
 from utils import linear_schedule
 
 
