@@ -38,9 +38,9 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     #gae_lambda = 0.8
     max_grad_norm = trial.suggest_categorical("max_grad_norm", [0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1, 2, 5])
     #max_grad_norm = 0.5
-    #vf_coef = trial.suggest_uniform("vf_coef", 0, 1)
-    vf_coef = 0.5
-    net_arch = trial.suggest_categorical("net_arch", ["small", "medium", "large", "huge", "small3", "medium3", "large3", "huge3"])
+    vf_coef = trial.suggest_uniform("vf_coef", 0, 1)
+    #vf_coef = 0.5
+    net_arch = trial.suggest_categorical("net_arch", ["small", "medium"])
     #net_arch = "large"
     use_sde = False
     # Uncomment for gSDE (continuous action)
@@ -49,8 +49,8 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     ortho_init = True
     # ortho_init = trial.suggest_categorical('ortho_init', [False, True])
     # activation_fn = trial.suggest_categorical('activation_fn', ['tanh', 'relu', 'elu', 'leaky_relu'])
-    activation_fn = 'tanh'
-    # activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
+    #activation_fn = 'tanh'
+    activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
 
 
     distribution_type = 'FixedVarSquashedDiagGaussian'
@@ -69,7 +69,7 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
         beta_init = 16
 
     if batch_size > n_steps * n_envs:
-        batch_size = n_steps
+        batch_size = n_steps * n_envs
 
     if lr_schedule == "linear":
         learning_rate = linear_schedule(learning_rate)
@@ -79,12 +79,12 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     net_arch = {
         'small': [dict(pi=[64, 64], vf=[64, 64])],
         'medium': [dict(pi=[256, 256], vf=[256, 256])],
-        'large': [dict(pi=[512, 512], vf=[512, 512])],
-        'huge': [dict(pi=[1024, 1024], vf=[1024, 1024])],
-        'small3': [dict(pi=[64, 64], vf=[64, 64])],
-        'medium3': [dict(pi=[256, 256], vf=[256, 256])],
-        'large3': [dict(pi=[512, 512], vf=[512, 512])],
-        'huge3': [dict(pi=[1024, 1024], vf=[1024, 1024])]
+        #'large': [dict(pi=[512, 512], vf=[512, 512])],
+        #'huge': [dict(pi=[1024, 1024], vf=[1024, 1024])]
+        #'small3': [dict(pi=[64, 64], vf=[64, 64])],
+        #'medium3': [dict(pi=[256, 256], vf=[256, 256])],
+        #'large3': [dict(pi=[512, 512], vf=[512, 512])],
+        #'huge3': [dict(pi=[1024, 1024], vf=[1024, 1024])]
     }[net_arch]
 
     activation_fn = {"tanh": nn.Tanh, "relu": nn.ReLU, "elu": nn.ELU, "leaky_relu": nn.LeakyReLU}[activation_fn]
@@ -94,7 +94,6 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     #                     'Beta': Beta}[distribution_type]
 
     return {
-        'set_action_bias_from_env': True,
         'n_steps': n_steps,
         'batch_size': batch_size,
         'gamma': gamma,

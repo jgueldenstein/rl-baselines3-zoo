@@ -17,7 +17,7 @@
 WebotsFootstepEnv-v0:
   callback:
     - deep_footsteps.callbacks.PlotCallback
-  n_envs: 1
+  n_envs: 8
   n_timesteps: !!float 1e5
   policy: 'MlpPolicy'
   use_sde: True
