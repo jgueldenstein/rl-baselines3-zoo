@@ -23,7 +23,7 @@ WebotsFootstepEnv-v0:
   use_sde: True
   sde_sample_freq: 4
   batch_size: 128
-  n_steps: 2048
+  n_steps: 256
   gamma: 0.995
   learning_rate: 0.000108412881020466
   ent_coef: 9.49848828993203e-08
@@ -32,7 +32,7 @@ WebotsFootstepEnv-v0:
   clip_range: 0.1
   max_grad_norm: 0.3
   gae_lambda: 0.95
-  policy_kwargs: "dict(activation_fn=nn.ReLU, net_arch=[dict(pi=[256, 256], vf=[256, 256])])"
+  policy_kwargs: "dict(activation_fn=nn.Tanh, net_arch=[dict(pi=[64, 64], vf=[64, 64])])"
 
 
 
