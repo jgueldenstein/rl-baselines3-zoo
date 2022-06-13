@@ -38,14 +38,14 @@ WebotsFootstepEnv-v0:
 2DFootstepEnv-v0:
   callback:
     - deep_footsteps.callbacks.PlotCallback
-  n_envs: 1
+  n_envs: 8
   n_timesteps: !!float 1e6
   policy: 'MlpPolicy'
   use_sde: False
   #sde_sample_freq: 4
   normalize: True
   batch_size: 128
-  n_steps: 2048
+  n_steps: 256
   gamma: 0.995
   learning_rate: 0.000108412881020466
   ent_coef: 9.49848828993203e-08
