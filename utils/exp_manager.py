@@ -6,6 +6,7 @@ import warnings
 from collections import OrderedDict
 from pprint import pprint
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+import subprocess
 
 import gym
 import numpy as np
@@ -445,12 +446,15 @@ class ExperimentManager:
             config.update(self.env_kwargs)
             config.pop("policy_kwargs")
             sync_tensorboard = self.tensorboard_log != ""
+            result = subprocess.run('cd /home/jasper/ma_ws/src/deep_footsteps ; git rev-parse HEAD', stdout=subprocess.PIPE, shell=True)
+            print(result.stdout)
             self.wandb_run = wandb.init(
-                project="sb3",
+                project="2Denv",
                 config=config,
                 sync_tensorboard=sync_tensorboard,  # auto-upload sb3's tensorboard metrics
                 monitor_gym=True,  # auto-upload the videos of agents playing the game
                 save_code=False,  # optional
+                notes = result.stdout
             )
             self.callbacks.append(WandbCallback(
                 gradient_save_freq=0,
