@@ -53,10 +53,10 @@ def sample_ppo_params(trial: optuna.Trial, n_envs) -> Dict[str, Any]:
     activation_fn = trial.suggest_categorical("activation_fn", ["tanh", "relu"])
 
 
-    distribution_type = 'FixedVarSquashedDiagGaussian'
-    # distribution_type = trial.suggest_categorical('distribution_type',
-    #                                              ['FixedVarSquashedDiagGaussian', 'FixedVarDiagGaussian',
-    #                                               'SquashedDiagGaussian', 'Beta'])
+    # distribution_type = 'FixedVarSquashedDiagGaussian'
+    distribution_type = trial.suggest_categorical('distribution_type',
+                                                 ['FixedVarSquashedDiagGaussian', 'FixedVarDiagGaussian',
+                                                  'SquashedDiagGaussian', 'Beta'])
     log_std_init = None
     if distribution_type in ['FixedVarSquashedDiagGaussian', 'FixedVarDiagGaussian', 'SquashedDiagGaussian']:
         # only need this if we use some form of gaussian distribution

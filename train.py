@@ -119,6 +119,7 @@ if __name__ == "__main__":  # noqa: C901
         action=StoreDict,
         help="Overwrite hyperparameter (e.g. learning_rate:0.01 train_freq:10)",
     )
+    parser.add_argument("--param-file", type=str, default=None, help="Use different file for hyperparameters")
     parser.add_argument("-uuid", "--uuid", action="store_true", default=False, help="Ensure that the run has a unique ID")
     parser.add_argument("-wandb", "--wandb", action="store_true", default=False,
                         help="Enable wandb logging")
@@ -235,7 +236,7 @@ if __name__ == "__main__":  # noqa: C901
     )
 
     # Prepare experiment and launch hyperparameter optimization if needed
-    results = exp_manager.setup_experiment()
+    results = exp_manager.setup_experiment(param_file=args.param_file)
     if results is not None:
         model, saved_hyperparams = results
         if args.track:

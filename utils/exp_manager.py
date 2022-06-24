@@ -168,14 +168,14 @@ class ExperimentManager:
         self.wandb_run = None
         self.eval_video_length = eval_video_length
 
-    def setup_experiment(self) -> Optional[Tuple[BaseAlgorithm, Dict[str, Any]]]:
+    def setup_experiment(self, param_file=None) -> Optional[Tuple[BaseAlgorithm, Dict[str, Any]]]:
         """
         Read hyperparameters, pre-process them (create schedules, wrappers, callbacks, action noise objects)
         create the environment and possibly the model.
 
         :return: the initialized RL model
         """
-        hyperparams, saved_hyperparams = self.read_hyperparameters()
+        hyperparams, saved_hyperparams = self.read_hyperparameters(param_file)
         hyperparams, self.env_wrapper, self.callbacks = self._preprocess_hyperparams(hyperparams)
 
         self.create_log_folder()
@@ -277,9 +277,11 @@ class ExperimentManager:
 
         print(f"Log path: {self.save_path}")
 
-    def read_hyperparameters(self) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    def read_hyperparameters(self, param_file=None) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         # Load hyperparameters from yaml file
-        with open(f"hyperparams/{self.algo}.yml") as f:
+        if not param_file:
+            param_file = f"hyperparams/{self.algo}.yml"
+        with open(param_file) as f:
             hyperparams_dict = yaml.safe_load(f)
             if self.env_id in list(hyperparams_dict.keys()):
                 hyperparams = hyperparams_dict[self.env_id]
@@ -446,10 +448,10 @@ class ExperimentManager:
             config.update(self.env_kwargs)
             config.pop("policy_kwargs")
             sync_tensorboard = self.tensorboard_log != ""
-            result = subprocess.run('cd /home/jasper/ma_ws/src/deep_footsteps ; git rev-parse HEAD', stdout=subprocess.PIPE, shell=True)
+            result = subprocess.run('cd /srv/ssd_nvm/15guelden/ma_ws/src/deep_footsteps/deep_footsteps ; git rev-parse HEAD', stdout=subprocess.PIPE, shell=True)
             print(result.stdout)
             self.wandb_run = wandb.init(
-                project="2Denv",
+                project="sb3", # "sb3" "2Denv"
                 config=config,
                 sync_tensorboard=sync_tensorboard,  # auto-upload sb3's tensorboard metrics
                 monitor_gym=True,  # auto-upload the videos of agents playing the game

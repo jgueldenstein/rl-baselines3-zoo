@@ -24,6 +24,7 @@ def main():  # noqa: C901
     parser.add_argument("-f", "--folder", help="Log folder", type=str, default="rl-trained-agents")
     parser.add_argument("--algo", help="RL Algorithm", default="ppo", type=str, required=False, choices=list(ALGOS.keys()))
     parser.add_argument("-n", "--n-timesteps", help="number of timesteps", default=1000, type=int)
+    parser.add_argument("-nep", "--n-episodes", help="number of episodes", default=None, type=int)
     parser.add_argument("--num-threads", help="Number of threads for PyTorch (-1 to use default)", default=-1, type=int)
     parser.add_argument("--n-envs", help="number of environments", default=1, type=int)
     parser.add_argument("--exp-id", help="Experiment ID (default: 0: latest, -1: no exp folder)", default=0, type=int)
@@ -195,6 +196,8 @@ def main():  # noqa: C901
     successes = []
     try:
         for _ in range(args.n_timesteps):
+            if args.n_episodes and len(episode_rewards) == args.n_episodes:
+                break
             action, state = model.predict(obs, state=state, deterministic=deterministic)
             obs, reward, done, infos = env.step(action)
             if not args.no_render:
@@ -215,10 +218,14 @@ def main():  # noqa: C901
                 if done and not is_atari and args.verbose > 0:
                     # NOTE: for env using VecNormalize, the mean reward
                     # is a normalized reward when `--norm_reward` flag is passed
-                    print(f"Episode Reward: {episode_reward:.2f}")
-                    print("Episode Length", ep_len)
+
                     episode_rewards.append(episode_reward)
                     episode_lengths.append(ep_len)
+                    if not args.n_episodes:
+                        print(f"Episode Reward: {episode_reward:.2f}")
+                        print("Episode Length", ep_len)
+                    elif len(episode_rewards) % (args.n_episodes // 100) == 0:
+                        print(f"{len(episode_rewards)}/{args.n_episodes}")
                     episode_reward = 0.0
                     ep_len = 0
                     state = None
